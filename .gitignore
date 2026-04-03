@@ -1,5 +1,69 @@
-venv/
+# Git internals and patch leftovers
+.git/
+**/.git/
+*.orig
+*.rej
+
+# Editors and IDEs
 .idea/
+**/.idea/
+.vscode/
+.fleet/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python environments, caches, and local libraries
+venv/
+.venv/
+env/
+ENV/
+**/venv/
+**/.venv/
+site-packages/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyd
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.tox/
+.nox/
+.pyre/
+.cache/
+htmlcov/
+.coverage
+.coverage.*
+pip-wheel-metadata/
+*.egg-info/
+.eggs/
+
+# Logs and temp files
+*.log
+*.tmp
+tmp/
+temp/
+
+# SQLite runtime side files
+*.db-shm
+*.db-wal
+
+# Android / Gradle build artifacts
 .gradle/
 **/.gradle/
+.kotlin/
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
 local.properties
+*.apk
+*.aab
+*.ap_
+*.keystore
+*.jks
