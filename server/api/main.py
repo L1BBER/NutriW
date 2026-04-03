@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
+import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -8,7 +11,7 @@ import cv2
 import numpy as np
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -30,11 +33,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"] ,
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# static for stored images
+# Static files for stored training images and other data assets.
 app.mount("/static", StaticFiles(directory=str(db.DATA_DIR)), name="static")
 
 
@@ -43,9 +46,121 @@ def _startup() -> None:
     db.init_db()
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon() -> Response:
+    return Response(status_code=204)
+
+
 # --------------------------
-# Core scan pipeline
+# Helpers
 # --------------------------
+
+
+def _parse_optional_number(raw_value: Optional[str], field_name: str) -> Optional[float]:
+    if raw_value is None:
+        return None
+
+    value = raw_value.strip()
+    if not value:
+        return None
+
+    try:
+        parsed = float(value.replace(",", "."))
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be a number") from exc
+
+    if parsed <= 0:
+        raise ValueError(f"{field_name} must be greater than 0")
+
+    return parsed
+
+
+def _parse_pieces(raw_value: str) -> int:
+    value = raw_value.strip()
+    if not value:
+        raise ValueError("pieces is required")
+
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise ValueError("pieces must be an integer") from exc
+
+    if parsed <= 0:
+        raise ValueError("pieces must be greater than 0")
+
+    return parsed
+
+
+def _slugify_filename_part(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    ascii_value = normalized.encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-zA-Z0-9]+", "_", ascii_value).strip("_").lower()
+    return slug or "product"
+
+
+def _safe_training_image_name(product_name: str, product_id: int, original_filename: Optional[str]) -> str:
+    extension = Path(original_filename or "").suffix.lower()
+    if extension not in {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif"}:
+        extension = ".jpg"
+
+    unique_suffix = uuid.uuid4().hex[:8]
+    product_slug = _slugify_filename_part(product_name)
+    return f"{product_slug}_{product_id}_{unique_suffix}{extension}"
+
+
+def _normalize_recipe_payload(payload: Dict[str, Any]) -> tuple[str, str, int, List[Dict[str, Any]]]:
+    title = str(payload.get("titlePl", "")).strip()
+    if not title:
+        raise ValueError("titlePl is required")
+
+    steps = str(payload.get("stepsPl", "")).strip()
+
+    try:
+        servings = int(payload.get("servings", 1))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("servings must be an integer") from exc
+
+    if servings <= 0:
+        raise ValueError("servings must be greater than 0")
+
+    raw_ingredients = payload.get("ingredients", [])
+    if not isinstance(raw_ingredients, list):
+        raise ValueError("ingredients must be a list")
+
+    ingredients: List[Dict[str, Any]] = []
+    for index, ingredient in enumerate(raw_ingredients, start=1):
+        if not isinstance(ingredient, dict):
+            raise ValueError(f"ingredient #{index} must be an object")
+
+        name = str(ingredient.get("name", "")).strip()
+        if not name:
+            raise ValueError(f"ingredient #{index} name is required")
+
+        amount_text = str(ingredient.get("amount_text", "")).strip() or None
+        grams_raw = ingredient.get("grams")
+        grams_value: Optional[float] = None
+        if grams_raw not in (None, ""):
+            try:
+                grams_value = float(str(grams_raw).replace(",", "."))
+            except ValueError as exc:
+                raise ValueError(f"ingredient #{index} grams must be a number") from exc
+            if grams_value <= 0:
+                raise ValueError(f"ingredient #{index} grams must be greater than 0")
+
+        ingredients.append(
+            {
+                "name": name,
+                "amount_text": amount_text,
+                "grams": grams_value,
+                "required": bool(ingredient.get("required", True)),
+            }
+        )
+
+    if not ingredients:
+        raise ValueError("at least one ingredient is required")
+
+    return title, steps, servings, ingredients
+
 
 def _confidence_logic(final_conf: float, gap: float) -> Dict[str, Any]:
     warnings: List[str] = []
@@ -61,7 +176,7 @@ def _confidence_logic(final_conf: float, gap: float) -> Dict[str, Any]:
     if not warnings:
         warnings.append("OK")
 
-    return {"need_user_review": need_review, "warnings": [w for w in warnings if w != "OK"]}
+    return {"need_user_review": need_review, "warnings": [warning for warning in warnings if warning != "OK"]}
 
 
 def _fuse_scores(ocr_conf: float, img_conf: float) -> float:
@@ -71,69 +186,53 @@ def _fuse_scores(ocr_conf: float, img_conf: float) -> float:
 
 
 def _parse_percent_from_name(name: str) -> Optional[float]:
-    import re
-
-    m = re.search(r"(\d+(?:[\.,]\d+)?)\s*%", name)
-    if not m:
+    match = re.search(r"(\d+(?:[\.,]\d+)?)\s*%", name)
+    if not match:
         return None
     try:
-        return float(m.group(1).replace(',', '.'))
+        return float(match.group(1).replace(",", "."))
     except Exception:
         return None
 
 
 def _parse_net_from_name(name: str) -> Optional[str]:
-    import re
-
-    m = re.search(r"(\d+(?:[\.,]\d+)?)\s*(kg|g|ml|l)\b", name.lower())
-    if not m:
+    match = re.search(r"(\d+(?:[\.,]\d+)?)\s*(kg|g|ml|l)\b", name.lower())
+    if not match:
         return None
-    val = m.group(1).replace(',', '.')
-    unit = m.group(2)
-    return f"{val} {unit}"
+    value = match.group(1).replace(",", ".")
+    unit = match.group(2)
+    return f"{value} {unit}"
 
 
-def _adjust_similarity_with_ocr(pname: str, base_sim: float, o) -> float:
-    """Re-rank visual matches using OCR-extracted hints (fat %, net volume).
+def _adjust_similarity_with_ocr(product_name: str, base_similarity: float, ocr_result: Any) -> float:
+    """Re-rank visual matches using OCR-extracted hints."""
+    similarity = float(base_similarity)
 
-    This is critical for visually similar products like milk 1.5% vs 3.2%.
-    """
-    sim = float(base_sim)
-
-    # Fat percent hint
-    o_pct = getattr(o, "fat_percent", None)
-    p_pct = _parse_percent_from_name(pname)
-    if o_pct is not None and p_pct is not None:
-        diff = abs(o_pct - p_pct)
+    ocr_percent = getattr(ocr_result, "fat_percent", None)
+    product_percent = _parse_percent_from_name(product_name)
+    if ocr_percent is not None and product_percent is not None:
+        diff = abs(ocr_percent - product_percent)
         if diff <= 0.2:
-            sim += 0.10
+            similarity += 0.10
         elif diff >= 0.6:
-            sim -= 0.18
+            similarity -= 0.18
 
-    # Net hint
-    o_net = getattr(o, "net", None)
-    p_net = _parse_net_from_name(pname)
-    if o_net and p_net and o_net == p_net:
-        sim += 0.05
+    ocr_net = getattr(ocr_result, "net", None)
+    product_net = _parse_net_from_name(product_name)
+    if ocr_net and product_net and ocr_net == product_net:
+        similarity += 0.05
 
-    # Clamp
-    if sim < 0.0:
-        sim = 0.0
-    if sim > 1.0:
-        sim = 1.0
-    return sim
+    return max(0.0, min(1.0, similarity))
+
+
+# --------------------------
+# Core scan pipeline
+# --------------------------
 
 
 @app.post("/scan/confirm")
 async def scan_confirm(image: UploadFile = File(...)):
-    """Step 1 OCR + Step 2 visual analysis.
-
-    Returns:
-    - products (with candidates)
-    - warnings
-    - need_user_review
-    - recipes (only if confident)
-    """
+    """Step 1 OCR + Step 2 visual analysis."""
     raw = await image.read()
     np_arr = np.frombuffer(raw, np.uint8)
     img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
@@ -141,85 +240,78 @@ async def scan_confirm(image: UploadFile = File(...)):
     if img is None:
         return {"products": [], "recipes": [], "warnings": ["Invalid image"], "need_user_review": True}
 
-    # Step 1: OCR
-    o = run_ocr(img)
-
-    # Step 2: Visual
-    emb = image_embedding_bgr(img)
+    ocr_result = run_ocr(img)
+    embedding = image_embedding_bgr(img)
     samples = db.load_samples()
 
     if not samples:
-        # No training data yet -> force review
-        prod = {
+        product = {
             "name": "",
             "brand": None,
-            "amount": o.net,
+            "amount": ocr_result.net,
             "confidence": 0.0,
             "candidates": [],
             "fields": {
-                "ocrText": o.text,
-                "net": o.net,
-                "fat_percent": o.fat_percent,
-                "kcal_100": o.kcal_100,
-                "p_100": o.p_100,
-                "f_100": o.f_100,
-                "c_100": o.c_100,
+                "ocrText": ocr_result.text,
+                "net": ocr_result.net,
+                "fat_percent": ocr_result.fat_percent,
+                "kcal_100": ocr_result.kcal_100,
+                "p_100": ocr_result.p_100,
+                "f_100": ocr_result.f_100,
+                "c_100": ocr_result.c_100,
             },
         }
         return {
-            "products": [prod],
+            "products": [product],
             "recipes": [],
             "warnings": ["No training data. Please add training samples."],
             "need_user_review": True,
         }
 
-    scored = top_k_similar(emb, samples, k=25)
-    agg = aggregate_by_product(scored, top_n=5)
+    scored = top_k_similar(embedding, samples, k=25)
+    aggregated = aggregate_by_product(scored, top_n=5)
 
-    # OCR-aware re-ranking of aggregated candidates
     reranked = []
-    for _, pname, sim in agg:
-        adj = _adjust_similarity_with_ocr(pname, sim, o)
-        reranked.append((pname, sim, adj))
-    reranked.sort(key=lambda x: x[2], reverse=True)
+    for _, product_name, similarity in aggregated:
+        adjusted_similarity = _adjust_similarity_with_ocr(product_name, similarity, ocr_result)
+        reranked.append((product_name, similarity, adjusted_similarity))
+    reranked.sort(key=lambda item: item[2], reverse=True)
 
-    # Build candidates (show adjusted score as confidence)
-    candidates = [{"name": pname, "confidence": round(adj, 3)} for pname, _, adj in reranked]
-    best_sim = reranked[0][2] if reranked else 0.0
-    second_sim = reranked[1][2] if len(reranked) > 1 else 0.0
-    gap = float(best_sim - second_sim)
+    candidates = [{"name": product_name, "confidence": round(adjusted_similarity, 3)} for product_name, _, adjusted_similarity in reranked]
+    best_similarity = reranked[0][2] if reranked else 0.0
+    second_similarity = reranked[1][2] if len(reranked) > 1 else 0.0
+    gap = float(best_similarity - second_similarity)
 
-    final_conf = _fuse_scores(o.confidence, best_sim)
-    logic = _confidence_logic(final_conf, gap)
+    final_confidence = _fuse_scores(ocr_result.confidence, best_similarity)
+    confidence_logic = _confidence_logic(final_confidence, gap)
 
     best_name = candidates[0]["name"] if candidates else ""
-
     product = {
         "name": best_name,
         "brand": None,
-        "amount": o.net,
-        "confidence": round(final_conf, 2),
+        "amount": ocr_result.net,
+        "confidence": round(final_confidence, 2),
         "candidates": candidates,
         "fields": {
-            "ocrText": o.text,
-            "net": o.net,
-            "fat_percent": o.fat_percent,
-            "kcal_100": o.kcal_100,
-            "p_100": o.p_100,
-            "f_100": o.f_100,
-            "c_100": o.c_100,
+            "ocrText": ocr_result.text,
+            "net": ocr_result.net,
+            "fat_percent": ocr_result.fat_percent,
+            "kcal_100": ocr_result.kcal_100,
+            "p_100": ocr_result.p_100,
+            "f_100": ocr_result.f_100,
+            "c_100": ocr_result.c_100,
         },
     }
 
     recipes = []
-    if not logic["need_user_review"]:
+    if not confidence_logic["need_user_review"]:
         recipes = db.get_recipes_for_products([best_name], max_missing=2)
 
     return {
         "products": [product],
         "recipes": recipes,
-        "warnings": logic["warnings"],
-        "need_user_review": logic["need_user_review"],
+        "warnings": confidence_logic["warnings"],
+        "need_user_review": confidence_logic["need_user_review"],
     }
 
 
@@ -227,7 +319,7 @@ async def scan_confirm(image: UploadFile = File(...)):
 async def scan_confirm_user_edit(payload: Dict[str, Any]):
     """User confirms/edits products; server returns recipe suggestions."""
     products = payload.get("products", [])
-    names = [p.get("name", "") for p in products]
+    names = [product.get("name", "") for product in products]
     recipes = db.get_recipes_for_products(names, max_missing=2)
     return {"recipes": recipes}
 
@@ -236,44 +328,47 @@ async def scan_confirm_user_edit(payload: Dict[str, Any]):
 # Training endpoints
 # --------------------------
 
+
 @app.post("/train/add")
 async def train_add(
     product_name: str = Form(...),
-    default_amount: Optional[str] = Form(None),
-    default_weight_g: Optional[str] = Form(None),
+    pieces: str = Form(...),
+    volume_l: Optional[str] = Form(None),
+    weight_g: Optional[str] = Form(None),
     image: UploadFile = File(...),
 ):
-    """Training: user enters product info + uploads photo.
+    """Store product metadata and a training image."""
+    product_name = product_name.strip()
+    if not product_name:
+        return {"ok": False, "error": "product_name is required"}
 
-    We store the product and a sample embedding.
-    """
-    # HTML forms send empty string for optional number inputs; treat '' as None
-    parsed_weight: Optional[float] = None
-    if default_weight_g is not None:
-        s = default_weight_g.strip()
-        if s != "":
-            try:
-                parsed_weight = float(s.replace(",", "."))
-            except ValueError:
-                return {"ok": False, "error": "default_weight_g must be a number (grams)"}
+    try:
+        parsed_pieces = _parse_pieces(pieces)
+        parsed_volume_l = _parse_optional_number(volume_l, "volume_l")
+        parsed_weight_g = _parse_optional_number(weight_g, "weight_g")
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
 
-    pid = db.upsert_product(product_name, default_amount, parsed_weight)
+    if parsed_volume_l is not None and parsed_weight_g is not None:
+        return {"ok": False, "error": "Use either volume_l or weight_g, not both"}
 
     raw = await image.read()
+    if not raw:
+        return {"ok": False, "error": "Image file is empty"}
+
     np_arr = np.frombuffer(raw, np.uint8)
     img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
     if img is None:
         return {"ok": False, "error": "Invalid image"}
 
-    emb = image_embedding_bgr(img)
+    embedding = image_embedding_bgr(img)
+    product_id = db.upsert_product(product_name, parsed_pieces, parsed_volume_l, parsed_weight_g)
 
-    # save image
-    safe_name = product_name.strip().lower().replace(" ", "_")
-    out_path = db.IMAGES_DIR / f"{safe_name}_{pid}_{image.filename}"
+    out_path = db.IMAGES_DIR / _safe_training_image_name(product_name, product_id, image.filename)
     out_path.write_bytes(raw)
 
-    sid = db.add_sample(pid, str(out_path.relative_to(db.DATA_DIR)), emb)
-    return {"ok": True, "product_id": pid, "sample_id": sid}
+    sample_id = db.add_sample(product_id, str(out_path.relative_to(db.DATA_DIR)), embedding)
+    return {"ok": True, "product_id": product_id, "sample_id": sample_id}
 
 
 @app.get("/train/products")
@@ -284,6 +379,7 @@ def train_products():
 # --------------------------
 # Recipe management
 # --------------------------
+
 
 @app.post("/recipes/add")
 async def recipes_add(payload: Dict[str, Any]):
@@ -296,20 +392,31 @@ async def recipes_add(payload: Dict[str, Any]):
       "servings": 2,
       "ingredients": [
         {"name":"mleko", "amount_text":"200 ml", "grams":200, "required":true},
-        {"name":"płatki owsiane", "amount_text":"50 g", "grams":50, "required":true}
+        {"name":"platki owsiane", "amount_text":"50 g", "grams":50, "required":true}
       ]
     }
     """
-    title = payload.get("titlePl")
-    if not title:
-        return {"ok": False, "error": "titlePl is required"}
+    try:
+        title, steps, servings, ingredients = _normalize_recipe_payload(payload)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
 
-    steps = payload.get("stepsPl", "")
-    servings = int(payload.get("servings", 1))
-    ingredients = payload.get("ingredients", [])
+    recipe_id = db.add_recipe(title, steps, servings, ingredients)
+    return {"ok": True, "recipe_id": recipe_id}
 
-    rid = db.add_recipe(title, steps, servings, ingredients)
-    return {"ok": True, "recipe_id": rid}
+
+@app.put("/recipes/{recipe_id}")
+async def recipes_update(recipe_id: int, payload: Dict[str, Any]):
+    try:
+        title, steps, servings, ingredients = _normalize_recipe_payload(payload)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+    updated = db.update_recipe(recipe_id, title, steps, servings, ingredients)
+    if not updated:
+        return {"ok": False, "error": "recipe not found"}
+
+    return {"ok": True, "recipe_id": recipe_id}
 
 
 @app.get("/recipes/list")
@@ -318,13 +425,14 @@ def recipes_list():
 
 
 # --------------------------
-# Simple Admin UI (optional, for easy demos)
+# Simple Admin UI
 # --------------------------
+
 
 @app.get("/admin", response_class=HTMLResponse)
 def admin_home():
-    tpl = jinja.get_template("admin.html")
-    return tpl.render(
+    template = jinja.get_template("admin.html")
+    return template.render(
         products=db.list_products(),
         recipes=db.list_recipes(),
     )

@@ -41,10 +41,28 @@ Server code is organized as:
 
 ### Windows
 
-From `server/` run:
+Quick start from the project root:
+
+```powershell
+Set-Location .\server
+.\scripts\run-server.ps1
+```
+
+If you are already inside `server/`, run:
 
 ```powershell
 .\scripts\run-server.ps1
+```
+
+Manual Windows startup:
+
+```powershell
+Set-Location .\server
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r .\requirements.txt
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
 
 The script:
@@ -72,6 +90,12 @@ After startup:
 ## Android app
 
 Open `android/mobile-app` in Android Studio.
+
+Open the Android project folder from PowerShell:
+
+```powershell
+Set-Location .\android\mobile-app
+```
 
 Server address is configured in:
 - `android/mobile-app/app/src/main/java/com/example/nutriw/data/api/NetworkModule.kt`

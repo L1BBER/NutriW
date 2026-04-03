@@ -5,63 +5,119 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NutriW Admin</title>
   <style>
-    body{font-family:system-ui,Segoe UI,Roboto,Arial;max-width:1000px;margin:24px auto;padding:0 16px;}
-    h1{margin:0 0 8px 0;}
-    .card{border:1px solid #e5e7eb;border-radius:14px;padding:16px;margin:12px 0;}
-    input,textarea{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:10px;}
-    button{padding:10px 14px;border:0;border-radius:12px;background:#111827;color:#fff;cursor:pointer;}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-    .muted{color:#6b7280;font-size:13px;}
-    code{background:#f3f4f6;padding:2px 6px;border-radius:8px;}
-    ul{padding-left:18px;}
+    body { font-family: system-ui, Segoe UI, Roboto, Arial, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+    h1 { margin: 0 0 8px 0; }
+    h2, h3 { margin-top: 0; }
+    .card { border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; margin: 12px 0; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .ingredient-row { display: grid; grid-template-columns: 1.2fr 1fr 0.7fr auto auto; gap: 10px; align-items: end; margin-bottom: 10px; }
+    label { display: block; margin-bottom: 6px; font-weight: 600; }
+    input, textarea { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 10px; box-sizing: border-box; }
+    input:disabled { background: #f3f4f6; color: #6b7280; }
+    textarea { min-height: 120px; resize: vertical; }
+    button { padding: 10px 14px; border: 0; border-radius: 12px; background: #111827; color: #fff; cursor: pointer; }
+    button.secondary { background: #e5e7eb; color: #111827; }
+    button.danger { background: #b91c1c; }
+    .muted { color: #6b7280; font-size: 13px; }
+    .field-help { margin-top: 6px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .recipes-grid { display: grid; gap: 12px; }
+    .recipe-card { border: 1px solid #d1d5db; border-radius: 12px; padding: 14px; background: #fafafa; }
+    .status { margin-top: 12px; padding: 10px 12px; border-radius: 10px; display: none; }
+    .status.success { display: block; background: #ecfdf5; color: #166534; border: 1px solid #a7f3d0; }
+    .status.error { display: block; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .checkbox-inline { display: flex; align-items: center; gap: 8px; padding-bottom: 10px; }
+    .checkbox-inline input { width: auto; }
+    ul { padding-left: 18px; }
+    @media (max-width: 840px) {
+      .row { grid-template-columns: 1fr; }
+      .ingredient-row { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
   <h1>NutriW Admin</h1>
-  <p class="muted">Quick demo UI for adding training samples and recipes. API docs: <a href="/docs">/docs</a></p>
+  <p class="muted">Quick demo UI for adding training samples and editing recipes. API docs: <a href="/docs">/docs</a></p>
 
   <div class="card">
     <h2>Add training sample</h2>
     <form action="/train/add" method="post" enctype="multipart/form-data">
       <div class="row">
         <div>
-          <label>Product name</label>
-          <input name="product_name" placeholder="np. mleko" required />
+          <label for="product_name">Product name</label>
+          <input id="product_name" name="product_name" placeholder="e.g. milk" required />
         </div>
         <div>
-          <label>Default amount (optional)</label>
-          <input name="default_amount" placeholder="np. 1 L" />
+          <label for="pieces">Pieces</label>
+          <input id="pieces" name="pieces" type="number" min="1" step="1" placeholder="e.g. 1" required />
+          <div class="muted field-help">This field is always required.</div>
         </div>
       </div>
+
       <div style="margin-top:10px" class="row">
         <div>
-          <label>Default weight in grams (optional)</label>
-          <input name="default_weight_g" type="number" step="0.1" placeholder="np. 1000" />
+          <label for="volume_l">Volume in liters</label>
+          <input id="volume_l" name="volume_l" type="number" min="0.001" step="0.001" placeholder="e.g. 1.0" />
         </div>
         <div>
-          <label>Photo</label>
-          <input name="image" type="file" accept="image/*" required />
+          <label for="weight_g">Weight in grams</label>
+          <input id="weight_g" name="weight_g" type="number" min="0.1" step="0.1" placeholder="e.g. 1000" />
         </div>
       </div>
+
+      <div class="muted field-help">Fill only one of these two fields: liters or grams.</div>
+
+      <div style="margin-top:10px" class="row">
+        <div>
+          <label for="image">Photo</label>
+          <input id="image" name="image" type="file" accept="image/*" required />
+        </div>
+      </div>
+
       <div style="margin-top:12px">
         <button type="submit">Upload training sample</button>
       </div>
     </form>
   </div>
 
-  <div class="card">
-    <h2>Add recipe (JSON)</h2>
-    <p class="muted">Send POST to <code>/recipes/add</code> with JSON. Example:</p>
-    <pre class="muted" style="white-space:pre-wrap">{
-  "titlePl": "Owsianka na mleku",
-  "stepsPl": "...",
-  "servings": 2,
-  "ingredients": [
-    {"name":"mleko", "amount_text":"200 ml", "grams":200, "required":true},
-    {"name":"płatki owsiane", "amount_text":"50 g", "grams":50, "required":true}
-  ]
-}</pre>
-    <p class="muted">You can use <a href="/docs">Swagger</a> to submit it.</p>
+  <div class="card" id="recipe-editor-card">
+    <h2>Recipe editor</h2>
+    <p class="muted">Create a new recipe or click Edit on an existing one.</p>
+
+    <form id="recipe-form">
+      <input id="recipe_id" type="hidden" />
+
+      <div class="row">
+        <div>
+          <label for="recipe_title">Recipe title</label>
+          <input id="recipe_title" type="text" placeholder="e.g. Oatmeal with milk" required />
+        </div>
+        <div>
+          <label for="recipe_servings">Servings</label>
+          <input id="recipe_servings" type="number" min="1" step="1" value="1" required />
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <label for="recipe_steps">Preparation steps</label>
+        <textarea id="recipe_steps" placeholder="Describe how to prepare the recipe"></textarea>
+      </div>
+
+      <div style="margin-top:14px">
+        <div class="actions" style="justify-content: space-between; align-items: center;">
+          <h3 style="margin:0;">Ingredients</h3>
+          <button id="add-ingredient-button" type="button" class="secondary">Add ingredient</button>
+        </div>
+        <div id="ingredients-list" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="actions" style="margin-top:14px;">
+        <button id="save-recipe-button" type="submit">Save recipe</button>
+        <button id="reset-recipe-button" type="button" class="secondary">Clear form</button>
+      </div>
+
+      <div id="recipe-status" class="status"></div>
+    </form>
   </div>
 
   <div class="card">
@@ -71,30 +127,219 @@
     {% else %}
       <ul>
         {% for p in products %}
-          <li><b>{{p.name}}</b> — default_amount: {{p.default_amount}} — default_weight_g: {{p.default_weight_g}}</li>
+          <li>
+            <b>{{ p.name }}</b>
+            - pieces: {{ p.pieces }}
+            {% if p.volume_l is not none %}- volume_l: {{ p.volume_l }} L{% endif %}
+            {% if p.weight_g is not none %}- weight_g: {{ p.weight_g }} g{% endif %}
+          </li>
         {% endfor %}
       </ul>
     {% endif %}
   </div>
 
   <div class="card">
-    <h2>Recipes</h2>
+    <h2>Saved recipes</h2>
     {% if recipes|length == 0 %}
       <p class="muted">No recipes yet.</p>
     {% else %}
-      {% for r in recipes %}
-        <div style="margin-bottom:10px">
-          <b>{{r.title_pl}}</b> (servings: {{r.servings}})
-          <div class="muted">Ingredients:</div>
-          <ul>
-            {% for i in r.ingredients %}
-              <li>{{i.name}} — {{i.amount_text}} {% if i.required==0 %}(optional){% endif %}</li>
-            {% endfor %}
-          </ul>
-        </div>
-      {% endfor %}
+      <div class="recipes-grid">
+        {% for r in recipes %}
+          <div class="recipe-card">
+            <div class="actions" style="justify-content: space-between; align-items: start;">
+              <div>
+                <b>{{ r.title_pl }}</b> (servings: {{ r.servings }})
+              </div>
+              <button
+                type="button"
+                class="secondary edit-recipe-button"
+                data-recipe="{{ r|tojson|forceescape }}"
+              >
+                Edit
+              </button>
+            </div>
+            {% if r.steps_pl %}
+              <p style="white-space: pre-wrap;">{{ r.steps_pl }}</p>
+            {% endif %}
+            <div class="muted">Ingredients:</div>
+            <ul>
+              {% for i in r.ingredients %}
+                <li>{{ i.name }} - {{ i.amount_text or 'no amount' }}{% if i.grams is not none %} - {{ i.grams }} g{% endif %}{% if i.required == 0 %} (optional){% endif %}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endfor %}
+      </div>
     {% endif %}
   </div>
 
+  <script>
+    const volumeInput = document.getElementById("volume_l");
+    const weightInput = document.getElementById("weight_g");
+
+    function syncExclusiveFields() {
+      const hasVolume = volumeInput.value.trim() !== "";
+      const hasWeight = weightInput.value.trim() !== "";
+
+      if (hasVolume) {
+        weightInput.value = "";
+        weightInput.disabled = true;
+      } else {
+        weightInput.disabled = false;
+      }
+
+      if (hasWeight) {
+        volumeInput.value = "";
+        volumeInput.disabled = true;
+      } else {
+        volumeInput.disabled = false;
+      }
+    }
+
+    volumeInput.addEventListener("input", syncExclusiveFields);
+    weightInput.addEventListener("input", syncExclusiveFields);
+    syncExclusiveFields();
+
+    const recipeForm = document.getElementById("recipe-form");
+    const recipeIdInput = document.getElementById("recipe_id");
+    const recipeTitleInput = document.getElementById("recipe_title");
+    const recipeServingsInput = document.getElementById("recipe_servings");
+    const recipeStepsInput = document.getElementById("recipe_steps");
+    const ingredientsList = document.getElementById("ingredients-list");
+    const recipeStatus = document.getElementById("recipe-status");
+    const recipeEditorCard = document.getElementById("recipe-editor-card");
+
+    function showRecipeStatus(message, kind) {
+      recipeStatus.textContent = message;
+      recipeStatus.className = "status " + kind;
+    }
+
+    function clearRecipeStatus() {
+      recipeStatus.textContent = "";
+      recipeStatus.className = "status";
+    }
+
+    function createIngredientRow(ingredient = {}) {
+      const row = document.createElement("div");
+      row.className = "ingredient-row";
+      row.innerHTML = `
+        <div>
+          <label>Name</label>
+          <input type="text" class="ingredient-name" placeholder="e.g. milk" value="${ingredient.name || ""}" />
+        </div>
+        <div>
+          <label>Amount text</label>
+          <input type="text" class="ingredient-amount" placeholder="e.g. 200 ml" value="${ingredient.amount_text || ""}" />
+        </div>
+        <div>
+          <label>Grams</label>
+          <input type="number" min="0.1" step="0.1" class="ingredient-grams" placeholder="e.g. 200" value="${ingredient.grams ?? ""}" />
+        </div>
+        <label class="checkbox-inline">
+          <input type="checkbox" class="ingredient-required" ${ingredient.required === false ? "" : "checked"} />
+          Required
+        </label>
+        <button type="button" class="danger remove-ingredient-button">Remove</button>
+      `;
+
+      row.querySelector(".remove-ingredient-button").addEventListener("click", () => {
+        row.remove();
+        if (!ingredientsList.children.length) {
+          addIngredientRow();
+        }
+      });
+
+      return row;
+    }
+
+    function addIngredientRow(ingredient = {}) {
+      ingredientsList.appendChild(createIngredientRow(ingredient));
+    }
+
+    function resetRecipeForm() {
+      recipeIdInput.value = "";
+      recipeTitleInput.value = "";
+      recipeServingsInput.value = "1";
+      recipeStepsInput.value = "";
+      ingredientsList.innerHTML = "";
+      addIngredientRow();
+      clearRecipeStatus();
+      document.getElementById("save-recipe-button").textContent = "Save recipe";
+    }
+
+    function collectRecipePayload() {
+      const ingredients = Array.from(ingredientsList.children).map((row) => {
+        const gramsValue = row.querySelector(".ingredient-grams").value.trim();
+        return {
+          name: row.querySelector(".ingredient-name").value.trim(),
+          amount_text: row.querySelector(".ingredient-amount").value.trim(),
+          grams: gramsValue === "" ? null : Number(gramsValue),
+          required: row.querySelector(".ingredient-required").checked
+        };
+      }).filter((ingredient) => ingredient.name !== "");
+
+      return {
+        titlePl: recipeTitleInput.value.trim(),
+        stepsPl: recipeStepsInput.value.trim(),
+        servings: Number(recipeServingsInput.value),
+        ingredients
+      };
+    }
+
+    document.getElementById("add-ingredient-button").addEventListener("click", () => addIngredientRow());
+    document.getElementById("reset-recipe-button").addEventListener("click", resetRecipeForm);
+
+    recipeForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearRecipeStatus();
+
+      const payload = collectRecipePayload();
+      const recipeId = recipeIdInput.value.trim();
+      const url = recipeId ? `/recipes/${recipeId}` : "/recipes/add";
+      const method = recipeId ? "PUT" : "POST";
+
+      try {
+        const response = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          showRecipeStatus(data.error || "Failed to save recipe", "error");
+          return;
+        }
+
+        showRecipeStatus("Recipe saved successfully. Reloading list...", "success");
+        setTimeout(() => window.location.reload(), 700);
+      } catch (error) {
+        showRecipeStatus("Failed to save recipe. Check server connection.", "error");
+      }
+    });
+
+    document.querySelectorAll(".edit-recipe-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        const recipe = JSON.parse(button.dataset.recipe);
+        recipeIdInput.value = recipe.id;
+        recipeTitleInput.value = recipe.title_pl || "";
+        recipeServingsInput.value = recipe.servings || 1;
+        recipeStepsInput.value = recipe.steps_pl || "";
+        ingredientsList.innerHTML = "";
+
+        if (Array.isArray(recipe.ingredients) && recipe.ingredients.length) {
+          recipe.ingredients.forEach((ingredient) => addIngredientRow(ingredient));
+        } else {
+          addIngredientRow();
+        }
+
+        clearRecipeStatus();
+        document.getElementById("save-recipe-button").textContent = "Update recipe";
+        recipeEditorCard.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    resetRecipeForm();
+  </script>
 </body>
 </html>
