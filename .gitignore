@@ -1,0 +1,5 @@
+venv/
+.idea/
+.gradle/
+**/.gradle/
+local.properties
