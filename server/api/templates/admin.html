@@ -5,173 +5,322 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NutriW Admin</title>
   <style>
-    body { font-family: system-ui, Segoe UI, Roboto, Arial, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 16px; }
-    h1 { margin: 0 0 8px 0; }
-    h2, h3 { margin-top: 0; }
-    .card { border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; margin: 12px 0; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .ingredient-row { display: grid; grid-template-columns: 1.2fr 1fr 0.7fr auto auto; gap: 10px; align-items: end; margin-bottom: 10px; }
-    label { display: block; margin-bottom: 6px; font-weight: 600; }
-    input, textarea { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 10px; box-sizing: border-box; }
-    input:disabled { background: #f3f4f6; color: #6b7280; }
+    :root {
+      --bg: #f7f3eb;
+      --card: #fffdf8;
+      --ink: #1f2933;
+      --muted: #5b6674;
+      --line: #d8d1c5;
+      --accent: #1b6b4b;
+      --accent-soft: #e8f3ee;
+      --danger: #9f2d2d;
+      --shadow: 0 12px 30px rgba(31, 41, 51, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(238, 220, 178, 0.75), transparent 32%),
+        linear-gradient(180deg, #fffaf3 0%, var(--bg) 100%);
+    }
+    main { max-width: 1160px; margin: 0 auto; padding: 28px 18px 48px; }
+    h1 { margin: 0; font-size: 2.3rem; }
+    h2 { margin: 0 0 10px; font-size: 1.35rem; }
+    h3 { margin: 0; font-size: 1rem; }
+    p { margin: 0; }
+    a { color: var(--accent); }
+    .hero {
+      padding: 28px;
+      border-radius: 28px;
+      background: linear-gradient(135deg, rgba(255, 250, 240, 0.96), rgba(238, 247, 240, 0.96));
+      border: 1px solid rgba(27, 107, 75, 0.12);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 18px;
+    }
+    .hero-top { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: start; }
+    .hero-copy { display: grid; gap: 10px; max-width: 720px; }
+    .muted { color: var(--muted); }
+    .hero-links { display: flex; gap: 10px; flex-wrap: wrap; }
+    .pill-link {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+      gap: 18px;
+      margin-top: 20px;
+    }
+    .stack { display: grid; gap: 18px; }
+    .card {
+      border-radius: 24px;
+      padding: 20px;
+      background: var(--card);
+      border: 1px solid rgba(31, 41, 51, 0.08);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 14px;
+    }
+    .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .ingredient-row { display: grid; grid-template-columns: 1.2fr 1fr 0.75fr auto auto; gap: 10px; align-items: end; }
+    label { display: block; margin-bottom: 6px; font-weight: 700; font-size: 0.93rem; }
+    input, textarea {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+    }
+    input:disabled { background: #f2efe8; color: #7a8390; }
     textarea { min-height: 120px; resize: vertical; }
-    button { padding: 10px 14px; border: 0; border-radius: 12px; background: #111827; color: #fff; cursor: pointer; }
-    button.secondary { background: #e5e7eb; color: #111827; }
-    button.danger { background: #b91c1c; }
-    .muted { color: #6b7280; font-size: 13px; }
-    .field-help { margin-top: 6px; }
-    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
-    .recipes-grid { display: grid; gap: 12px; }
-    .recipe-card { border: 1px solid #d1d5db; border-radius: 12px; padding: 14px; background: #fafafa; }
-    .status { margin-top: 12px; padding: 10px 12px; border-radius: 10px; display: none; }
-    .status.success { display: block; background: #ecfdf5; color: #166534; border: 1px solid #a7f3d0; }
-    .status.error { display: block; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-    .checkbox-inline { display: flex; align-items: center; gap: 8px; padding-bottom: 10px; }
-    .checkbox-inline input { width: auto; }
-    ul { padding-left: 18px; }
-    @media (max-width: 840px) {
+    button {
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 14px;
+      background: var(--ink);
+      color: #fff;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+    }
+    button.secondary { background: #e9ecef; color: var(--ink); }
+    button.danger { background: var(--danger); }
+    .field-help { font-size: 0.86rem; color: var(--muted); margin-top: 6px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .status { margin-top: 6px; padding: 10px 12px; border-radius: 14px; display: none; }
+    .status.success { display: block; background: #edf8f1; color: #155938; border: 1px solid #bee0c7; }
+    .status.error { display: block; background: #fdf0f0; color: #8b2222; border: 1px solid #efc6c6; }
+    .products-list, .recipes-grid { display: grid; gap: 10px; }
+    .product-card, .recipe-card {
+      border: 1px solid rgba(31, 41, 51, 0.08);
+      border-radius: 18px;
+      padding: 14px;
+      background: #fff;
+    }
+    .meta-line { margin-top: 6px; color: var(--muted); font-size: 0.92rem; }
+    ul { margin: 8px 0 0; padding-left: 18px; }
+    .badge {
+      display: inline-flex;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    @media (max-width: 940px) {
+      .layout { grid-template-columns: 1fr; }
       .row { grid-template-columns: 1fr; }
       .ingredient-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <h1>NutriW Admin</h1>
-  <p class="muted">Quick demo UI for adding training samples and editing recipes. API docs: <a href="/docs">/docs</a></p>
-
-  <div class="card">
-    <h2>Add training sample</h2>
-    <form action="/train/add" method="post" enctype="multipart/form-data">
-      <div class="row">
-        <div>
-          <label for="product_name">Product name</label>
-          <input id="product_name" name="product_name" placeholder="e.g. milk" required />
+  <main>
+    <section class="hero">
+      <div class="hero-top">
+        <div class="hero-copy">
+          <span class="badge">Admin Workspace</span>
+          <h1>NutriW Admin</h1>
+          <p class="muted">Manage product metadata, upload manual training samples, and maintain recipes. For fast camera-based training on a phone, use the dedicated trainer app.</p>
         </div>
-        <div>
-          <label for="pieces">Pieces</label>
-          <input id="pieces" name="pieces" type="number" min="1" step="1" placeholder="e.g. 1" required />
-          <div class="muted field-help">This field is always required.</div>
+        <div class="hero-links">
+          <a class="pill-link" href="/trainer">Open Trainer App</a>
+          <a class="pill-link" href="/docs">Open API Docs</a>
         </div>
       </div>
+    </section>
 
-      <div style="margin-top:10px" class="row">
-        <div>
-          <label for="volume_l">Volume in liters</label>
-          <input id="volume_l" name="volume_l" type="number" min="0.001" step="0.001" placeholder="e.g. 1.0" />
-        </div>
-        <div>
-          <label for="weight_g">Weight in grams</label>
-          <input id="weight_g" name="weight_g" type="number" min="0.1" step="0.1" placeholder="e.g. 1000" />
-        </div>
-      </div>
-
-      <div class="muted field-help">Fill only one of these two fields: liters or grams.</div>
-
-      <div style="margin-top:10px" class="row">
-        <div>
-          <label for="image">Photo</label>
-          <input id="image" name="image" type="file" accept="image/*" required />
-        </div>
-      </div>
-
-      <div style="margin-top:12px">
-        <button type="submit">Upload training sample</button>
-      </div>
-    </form>
-  </div>
-
-  <div class="card" id="recipe-editor-card">
-    <h2>Recipe editor</h2>
-    <p class="muted">Create a new recipe or click Edit on an existing one.</p>
-
-    <form id="recipe-form">
-      <input id="recipe_id" type="hidden" />
-
-      <div class="row">
-        <div>
-          <label for="recipe_title">Recipe title</label>
-          <input id="recipe_title" type="text" placeholder="e.g. Oatmeal with milk" required />
-        </div>
-        <div>
-          <label for="recipe_servings">Servings</label>
-          <input id="recipe_servings" type="number" min="1" step="1" value="1" required />
-        </div>
-      </div>
-
-      <div style="margin-top:12px">
-        <label for="recipe_steps">Preparation steps</label>
-        <textarea id="recipe_steps" placeholder="Describe how to prepare the recipe"></textarea>
-      </div>
-
-      <div style="margin-top:14px">
-        <div class="actions" style="justify-content: space-between; align-items: center;">
-          <h3 style="margin:0;">Ingredients</h3>
-          <button id="add-ingredient-button" type="button" class="secondary">Add ingredient</button>
-        </div>
-        <div id="ingredients-list" style="margin-top:12px;"></div>
-      </div>
-
-      <div class="actions" style="margin-top:14px;">
-        <button id="save-recipe-button" type="submit">Save recipe</button>
-        <button id="reset-recipe-button" type="button" class="secondary">Clear form</button>
-      </div>
-
-      <div id="recipe-status" class="status"></div>
-    </form>
-  </div>
-
-  <div class="card">
-    <h2>Products</h2>
-    {% if products|length == 0 %}
-      <p class="muted">No products yet. Add training samples first.</p>
-    {% else %}
-      <ul>
-        {% for p in products %}
-          <li>
-            <b>{{ p.name }}</b>
-            - pieces: {{ p.pieces }}
-            {% if p.volume_l is not none %}- volume_l: {{ p.volume_l }} L{% endif %}
-            {% if p.weight_g is not none %}- weight_g: {{ p.weight_g }} g{% endif %}
-          </li>
-        {% endfor %}
-      </ul>
-    {% endif %}
-  </div>
-
-  <div class="card">
-    <h2>Saved recipes</h2>
-    {% if recipes|length == 0 %}
-      <p class="muted">No recipes yet.</p>
-    {% else %}
-      <div class="recipes-grid">
-        {% for r in recipes %}
-          <div class="recipe-card">
-            <div class="actions" style="justify-content: space-between; align-items: start;">
-              <div>
-                <b>{{ r.title_pl }}</b> (servings: {{ r.servings }})
-              </div>
-              <button
-                type="button"
-                class="secondary edit-recipe-button"
-                data-recipe="{{ r|tojson|forceescape }}"
-              >
-                Edit
-              </button>
-            </div>
-            {% if r.steps_pl %}
-              <p style="white-space: pre-wrap;">{{ r.steps_pl }}</p>
-            {% endif %}
-            <div class="muted">Ingredients:</div>
-            <ul>
-              {% for i in r.ingredients %}
-                <li>{{ i.name }} - {{ i.amount_text or 'no amount' }}{% if i.grams is not none %} - {{ i.grams }} g{% endif %}{% if i.required == 0 %} (optional){% endif %}</li>
-              {% endfor %}
-            </ul>
+    <section class="layout">
+      <div class="stack">
+        <div class="card">
+          <div>
+            <h2>Add training sample</h2>
+            <p class="muted">Manual upload is still useful when you already know the product label. You can now save brand and aliases to improve future OCR reranking.</p>
           </div>
-        {% endfor %}
+
+          <form action="/train/add" method="post" enctype="multipart/form-data">
+            <div class="row">
+              <div>
+                <label for="product_name">Product name</label>
+                <input id="product_name" name="product_name" placeholder="e.g. Mleko 3,2% bez laktozy" required />
+              </div>
+              <div>
+                <label for="brand">Brand</label>
+                <input id="brand" name="brand" placeholder="e.g. Mleczna Dolina" />
+              </div>
+            </div>
+
+            <div style="margin-top:10px">
+              <label for="aliases">Aliases</label>
+              <input id="aliases" name="aliases" placeholder="e.g. milk lactose free, mleko bez laktozy" />
+              <div class="field-help">Separate aliases with commas. These help the model match OCR text and user corrections.</div>
+            </div>
+
+            <div style="margin-top:10px" class="row">
+              <div>
+                <label for="pieces">Pieces</label>
+                <input id="pieces" name="pieces" type="number" min="1" step="1" placeholder="e.g. 1" required />
+                <div class="field-help">This field is always required.</div>
+              </div>
+              <div>
+                <label for="image">Photo</label>
+                <input id="image" name="image" type="file" accept="image/*" required />
+              </div>
+            </div>
+
+            <div style="margin-top:10px" class="row">
+              <div>
+                <label for="volume_l">Volume in liters</label>
+                <input id="volume_l" name="volume_l" type="number" min="0.001" step="0.001" placeholder="e.g. 1.0" />
+              </div>
+              <div>
+                <label for="weight_g">Weight in grams</label>
+                <input id="weight_g" name="weight_g" type="number" min="0.1" step="0.1" placeholder="e.g. 1000" />
+              </div>
+            </div>
+
+            <div class="field-help">Fill only one of these two fields: liters or grams.</div>
+
+            <div style="margin-top:12px" class="actions">
+              <button type="submit">Upload training sample</button>
+              <a class="pill-link" href="/trainer">Prefer the trainer workflow</a>
+            </div>
+          </form>
+        </div>
+
+        <div class="card" id="recipe-editor-card">
+          <div>
+            <h2>Recipe editor</h2>
+            <p class="muted">Create a recipe or edit an existing one with a cleaner form instead of raw JSON.</p>
+          </div>
+
+          <form id="recipe-form">
+            <input id="recipe_id" type="hidden" />
+
+            <div class="row">
+              <div>
+                <label for="recipe_title">Recipe title</label>
+                <input id="recipe_title" type="text" placeholder="e.g. Oatmeal with milk" required />
+              </div>
+              <div>
+                <label for="recipe_servings">Servings</label>
+                <input id="recipe_servings" type="number" min="1" step="1" value="1" required />
+              </div>
+            </div>
+
+            <div>
+              <label for="recipe_steps">Preparation steps</label>
+              <textarea id="recipe_steps" placeholder="Describe how to prepare the recipe"></textarea>
+            </div>
+
+            <div class="actions" style="justify-content: space-between;">
+              <h3>Ingredients</h3>
+              <button id="add-ingredient-button" type="button" class="secondary">Add ingredient</button>
+            </div>
+            <div id="ingredients-list" class="stack" style="gap: 10px;"></div>
+
+            <div class="actions">
+              <button id="save-recipe-button" type="submit">Save recipe</button>
+              <button id="reset-recipe-button" type="button" class="secondary">Clear form</button>
+            </div>
+
+            <div id="recipe-status" class="status"></div>
+          </form>
+        </div>
       </div>
-    {% endif %}
-  </div>
+
+      <div class="stack">
+        <div class="card">
+          <div class="actions" style="justify-content: space-between;">
+            <div>
+              <h2>Products</h2>
+              <p class="muted">Saved products with metadata that now influence the recognition ranking.</p>
+            </div>
+            <span class="badge">{{ products|length }} products</span>
+          </div>
+
+          {% if products|length == 0 %}
+            <p class="muted">No products yet. Add training samples first.</p>
+          {% else %}
+            <div class="products-list">
+              {% for p in products %}
+                <div class="product-card">
+                  <strong>{{ p.name }}</strong>
+                  {% if p.brand %}<div class="meta-line">Brand: {{ p.brand }}</div>{% endif %}
+                  <div class="meta-line">
+                    Pieces: {{ p.pieces }}
+                    {% if p.volume_l is not none %} | Volume: {{ p.volume_l }} L{% endif %}
+                    {% if p.weight_g is not none %} | Weight: {{ p.weight_g }} g{% endif %}
+                  </div>
+                  {% if p.aliases %}
+                    <div class="meta-line">Aliases: {{ p.aliases|join(', ') }}</div>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="card">
+          <div class="actions" style="justify-content: space-between;">
+            <div>
+              <h2>Saved recipes</h2>
+              <p class="muted">Edit any recipe in place with one click.</p>
+            </div>
+            <span class="badge">{{ recipes|length }} recipes</span>
+          </div>
+
+          {% if recipes|length == 0 %}
+            <p class="muted">No recipes yet.</p>
+          {% else %}
+            <div class="recipes-grid">
+              {% for r in recipes %}
+                <div class="recipe-card">
+                  <div class="actions" style="justify-content: space-between; align-items: start;">
+                    <div>
+                      <strong>{{ r.title_pl }}</strong>
+                      <div class="meta-line">Servings: {{ r.servings }}</div>
+                    </div>
+                    <button
+                      type="button"
+                      class="secondary edit-recipe-button"
+                      data-recipe="{{ r|tojson|forceescape }}"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                  {% if r.steps_pl %}
+                    <p style="margin-top:10px; white-space: pre-wrap;">{{ r.steps_pl }}</p>
+                  {% endif %}
+                  <div class="meta-line">Ingredients:</div>
+                  <ul>
+                    {% for i in r.ingredients %}
+                      <li>
+                        {{ i.name }} - {{ i.amount_text or 'no amount' }}
+                        {% if i.grams is not none %} - {{ i.grams }} g{% endif %}
+                        {% if i.required == 0 %} (optional){% endif %}
+                      </li>
+                    {% endfor %}
+                  </ul>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+  </main>
 
   <script>
     const volumeInput = document.getElementById("volume_l");
@@ -208,6 +357,7 @@
     const ingredientsList = document.getElementById("ingredients-list");
     const recipeStatus = document.getElementById("recipe-status");
     const recipeEditorCard = document.getElementById("recipe-editor-card");
+    const saveRecipeButton = document.getElementById("save-recipe-button");
 
     function showRecipeStatus(message, kind) {
       recipeStatus.textContent = message;
@@ -219,36 +369,64 @@
       recipeStatus.className = "status";
     }
 
+    function createInputField(labelText, className, type, value, placeholder) {
+      const wrapper = document.createElement("div");
+      const label = document.createElement("label");
+      label.textContent = labelText;
+      const input = document.createElement("input");
+      input.type = type;
+      input.className = className;
+      input.placeholder = placeholder;
+      input.value = value ?? "";
+      if (type === "number") {
+        input.min = "0.1";
+        input.step = "0.1";
+      }
+      wrapper.appendChild(label);
+      wrapper.appendChild(input);
+      return { wrapper, input };
+    }
+
     function createIngredientRow(ingredient = {}) {
       const row = document.createElement("div");
       row.className = "ingredient-row";
-      row.innerHTML = `
-        <div>
-          <label>Name</label>
-          <input type="text" class="ingredient-name" placeholder="e.g. milk" value="${ingredient.name || ""}" />
-        </div>
-        <div>
-          <label>Amount text</label>
-          <input type="text" class="ingredient-amount" placeholder="e.g. 200 ml" value="${ingredient.amount_text || ""}" />
-        </div>
-        <div>
-          <label>Grams</label>
-          <input type="number" min="0.1" step="0.1" class="ingredient-grams" placeholder="e.g. 200" value="${ingredient.grams ?? ""}" />
-        </div>
-        <label class="checkbox-inline">
-          <input type="checkbox" class="ingredient-required" ${ingredient.required === false ? "" : "checked"} />
-          Required
-        </label>
-        <button type="button" class="danger remove-ingredient-button">Remove</button>
-      `;
 
-      row.querySelector(".remove-ingredient-button").addEventListener("click", () => {
+      const nameField = createInputField("Name", "ingredient-name", "text", ingredient.name || "", "e.g. milk");
+      const amountField = createInputField("Amount text", "ingredient-amount", "text", ingredient.amount_text || "", "e.g. 200 ml");
+      const gramsField = createInputField("Grams", "ingredient-grams", "number", ingredient.grams ?? "", "e.g. 200");
+      gramsField.input.min = "0.1";
+      gramsField.input.step = "0.1";
+
+      const checkboxLabel = document.createElement("label");
+      checkboxLabel.className = "field-help";
+      checkboxLabel.style.display = "flex";
+      checkboxLabel.style.alignItems = "center";
+      checkboxLabel.style.gap = "8px";
+      checkboxLabel.style.marginBottom = "14px";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "ingredient-required";
+      checkbox.checked = ingredient.required !== false;
+      checkbox.style.width = "auto";
+      checkboxLabel.appendChild(checkbox);
+      checkboxLabel.appendChild(document.createTextNode("Required"));
+
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.className = "danger remove-ingredient-button";
+      removeButton.textContent = "Remove";
+      removeButton.addEventListener("click", () => {
         row.remove();
         if (!ingredientsList.children.length) {
           addIngredientRow();
         }
       });
 
+      row.appendChild(nameField.wrapper);
+      row.appendChild(amountField.wrapper);
+      row.appendChild(gramsField.wrapper);
+      row.appendChild(checkboxLabel);
+      row.appendChild(removeButton);
       return row;
     }
 
@@ -264,7 +442,7 @@
       ingredientsList.innerHTML = "";
       addIngredientRow();
       clearRecipeStatus();
-      document.getElementById("save-recipe-button").textContent = "Save recipe";
+      saveRecipeButton.textContent = "Save recipe";
     }
 
     function collectRecipePayload() {
@@ -334,7 +512,7 @@
         }
 
         clearRecipeStatus();
-        document.getElementById("save-recipe-button").textContent = "Update recipe";
+        saveRecipeButton.textContent = "Update recipe";
         recipeEditorCard.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     });

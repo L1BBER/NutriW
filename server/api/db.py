@@ -1,16 +1,19 @@
 import json
 import re
 import sqlite3
+import unicodedata
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 IMAGES_DIR = DATA_DIR / "images"
+TRAINER_PENDING_DIR = DATA_DIR / "trainer_pending"
 DB_PATH = DATA_DIR / "nutriw.db"
 
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+TRAINER_PENDING_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def connect() -> sqlite3.Connection:
@@ -21,6 +24,57 @@ def connect() -> sqlite3.Connection:
 
 def _table_columns(cur: sqlite3.Cursor, table_name: str) -> set[str]:
     return {row[1] for row in cur.execute(f"PRAGMA table_info({table_name})").fetchall()}
+
+
+def _normalize_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    ascii_value = normalized.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"\s+", " ", ascii_value).strip().casefold()
+
+
+def _load_aliases(raw_aliases: Optional[str]) -> List[str]:
+    if not raw_aliases:
+        return []
+    try:
+        loaded = json.loads(raw_aliases)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(loaded, list):
+        return []
+    aliases: List[str] = []
+    for alias in loaded:
+        text = str(alias).strip()
+        if text:
+            aliases.append(text)
+    return aliases
+
+
+def _normalize_aliases(
+    aliases: Optional[Iterable[Any]],
+    *,
+    product_name: Optional[str] = None,
+    brand: Optional[str] = None,
+) -> List[str]:
+    result: List[str] = []
+    seen: set[str] = set()
+    blocked = {
+        text
+        for text in (
+            _normalize_text(product_name or ""),
+            _normalize_text(brand or ""),
+        )
+        if text
+    }
+
+    for alias in aliases or []:
+        text = str(alias).strip()
+        normalized = _normalize_text(text)
+        if not text or not normalized or normalized in blocked or normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(text)
+
+    return result
 
 
 def _parse_legacy_amount(default_amount: Optional[str]) -> Dict[str, Optional[float]]:
@@ -62,12 +116,16 @@ def _migrate_products_schema(cur: sqlite3.Cursor) -> None:
         cur.execute("ALTER TABLE products ADD COLUMN volume_l REAL")
     if "weight_g" not in columns:
         cur.execute("ALTER TABLE products ADD COLUMN weight_g REAL")
+    if "brand" not in columns:
+        cur.execute("ALTER TABLE products ADD COLUMN brand TEXT")
+    if "aliases_json" not in columns:
+        cur.execute("ALTER TABLE products ADD COLUMN aliases_json TEXT NOT NULL DEFAULT '[]'")
 
     columns = _table_columns(cur, "products")
     has_legacy_amount = "default_amount" in columns
     has_legacy_weight = "default_weight_g" in columns
 
-    select_columns = ["id", "pieces", "volume_l", "weight_g"]
+    select_columns = ["id", "pieces", "volume_l", "weight_g", "brand", "aliases_json"]
     if has_legacy_amount:
         select_columns.append("default_amount")
     if has_legacy_weight:
@@ -82,6 +140,7 @@ def _migrate_products_schema(cur: sqlite3.Cursor) -> None:
         pieces = row["pieces"]
         volume_l = row["volume_l"]
         weight_g = row["weight_g"]
+        aliases = row["aliases_json"]
 
         updates: Dict[str, Any] = {}
 
@@ -92,7 +151,6 @@ def _migrate_products_schema(cur: sqlite3.Cursor) -> None:
         if volume_l is None and legacy_measurements["volume_l"] is not None:
             updates["volume_l"] = legacy_measurements["volume_l"]
 
-        # Keep only one measurement type. Volume wins over weight when both exist.
         resolved_volume_l = updates.get("volume_l", volume_l)
         if resolved_volume_l is None:
             if weight_g is None:
@@ -102,6 +160,9 @@ def _migrate_products_schema(cur: sqlite3.Cursor) -> None:
                     updates["weight_g"] = float(legacy_weight)
         elif weight_g is not None:
             updates["weight_g"] = None
+
+        if aliases is None:
+            updates["aliases_json"] = "[]"
 
         if updates:
             assignments = ", ".join(f"{column} = ?" for column in updates)
@@ -118,6 +179,8 @@ def init_db() -> None:
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
+            brand TEXT,
+            aliases_json TEXT NOT NULL DEFAULT '[]',
             pieces INTEGER NOT NULL DEFAULT 1,
             volume_l REAL,
             weight_g REAL
@@ -163,45 +226,118 @@ def init_db() -> None:
         """
     )
 
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS scan_feedback (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            saved_image_path TEXT NOT NULL,
+            predicted_product_id INTEGER,
+            predicted_name TEXT,
+            predicted_brand TEXT,
+            predicted_confidence REAL,
+            confirmed_product_id INTEGER NOT NULL,
+            confirmed_name TEXT NOT NULL,
+            confirmed_brand TEXT,
+            was_correct INTEGER NOT NULL DEFAULT 0,
+            ocr_text TEXT,
+            candidates_json TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(predicted_product_id) REFERENCES products(id),
+            FOREIGN KEY(confirmed_product_id) REFERENCES products(id)
+        );
+        """
+    )
+
     _migrate_products_schema(cur)
 
     con.commit()
     con.close()
 
 
-# --- Products ---
-
 def upsert_product(
     name: str,
     pieces: int,
     volume_l: Optional[float],
     weight_g: Optional[float],
+    *,
+    brand: Optional[str] = None,
+    aliases: Optional[Iterable[Any]] = None,
 ) -> int:
     if volume_l is not None and weight_g is not None:
         raise ValueError("Use either volume_l or weight_g, not both")
 
+    normalized_name = " ".join(name.strip().split())
+    if not normalized_name:
+        raise ValueError("Product name is required")
+
+    normalized_brand = " ".join((brand or "").strip().split()) or None
+    normalized_aliases = _normalize_aliases(aliases, product_name=normalized_name, brand=normalized_brand)
+
     con = connect()
     cur = con.cursor()
-    normalized_name = name.strip()
-
-    cur.execute("SELECT id FROM products WHERE name = ?", (normalized_name,))
+    cur.execute(
+        """
+        SELECT id, name, brand, aliases_json, pieces, volume_l, weight_g
+        FROM products
+        WHERE lower(name) = lower(?)
+        LIMIT 1
+        """,
+        (normalized_name,),
+    )
     row = cur.fetchone()
 
     if row:
+        existing_brand = row["brand"]
+        existing_aliases = _load_aliases(row["aliases_json"])
+        resolved_brand = normalized_brand or existing_brand
+        merged_aliases = _normalize_aliases(
+            [*existing_aliases, *normalized_aliases],
+            product_name=normalized_name,
+            brand=resolved_brand,
+        )
+
+        resolved_volume_l = volume_l
+        resolved_weight_g = weight_g
+        if volume_l is None and weight_g is None:
+            resolved_volume_l = row["volume_l"]
+            resolved_weight_g = row["weight_g"]
+        elif volume_l is not None:
+            resolved_weight_g = None
+        elif weight_g is not None:
+            resolved_volume_l = None
+
         cur.execute(
             """
             UPDATE products
-            SET pieces = ?, volume_l = ?, weight_g = ?
+            SET name = ?, brand = ?, aliases_json = ?, pieces = ?, volume_l = ?, weight_g = ?
             WHERE id = ?
             """,
-            (pieces, volume_l, weight_g, row["id"]),
+            (
+                normalized_name,
+                resolved_brand,
+                json.dumps(merged_aliases, ensure_ascii=True),
+                pieces,
+                resolved_volume_l,
+                resolved_weight_g,
+                row["id"],
+            ),
         )
         con.commit()
         product_id = int(row["id"])
     else:
         cur.execute(
-            "INSERT INTO products(name, pieces, volume_l, weight_g) VALUES(?,?,?,?)",
-            (normalized_name, pieces, volume_l, weight_g),
+            """
+            INSERT INTO products(name, brand, aliases_json, pieces, volume_l, weight_g)
+            VALUES(?,?,?,?,?,?)
+            """,
+            (
+                normalized_name,
+                normalized_brand,
+                json.dumps(normalized_aliases, ensure_ascii=True),
+                pieces,
+                volume_l,
+                weight_g,
+            ),
         )
         con.commit()
         product_id = int(cur.lastrowid)
@@ -215,9 +351,9 @@ def list_products() -> List[Dict[str, Any]]:
     cur = con.cursor()
     cur.execute(
         """
-        SELECT id, name, pieces, volume_l, weight_g
+        SELECT id, name, brand, aliases_json, pieces, volume_l, weight_g
         FROM products
-        ORDER BY name
+        ORDER BY COALESCE(brand, ''), name
         """
     )
     rows = [dict(r) for r in cur.fetchall()]
@@ -225,27 +361,12 @@ def list_products() -> List[Dict[str, Any]]:
 
     for row in rows:
         row["pieces"] = int(row["pieces"]) if row["pieces"] is not None else 1
+        row["aliases"] = _load_aliases(row.pop("aliases_json", None))
 
     return rows
 
 
-# --- Samples ---
-
-def add_sample(product_id: int, image_path: str, embedding: List[float]) -> int:
-    con = connect()
-    cur = con.cursor()
-    cur.execute(
-        "INSERT INTO samples(product_id, image_path, embedding_json) VALUES (?,?,?)",
-        (product_id, image_path, json.dumps(embedding)),
-    )
-    con.commit()
-    sample_id = int(cur.lastrowid)
-    con.close()
-    return sample_id
-
-
 def load_samples() -> List[Tuple[int, str, List[float]]]:
-    """Return list of (product_id, product_name, embedding)."""
     con = connect()
     cur = con.cursor()
     cur.execute(
@@ -262,7 +383,138 @@ def load_samples() -> List[Tuple[int, str, List[float]]]:
     return out
 
 
-# --- Recipes ---
+def load_product_catalog() -> List[Dict[str, Any]]:
+    con = connect()
+    cur = con.cursor()
+    cur.execute(
+        """
+        SELECT
+            p.id,
+            p.name,
+            p.brand,
+            p.aliases_json,
+            p.pieces,
+            p.volume_l,
+            p.weight_g,
+            s.embedding_json
+        FROM products p
+        LEFT JOIN samples s ON s.product_id = p.id
+        ORDER BY p.id
+        """
+    )
+
+    products: Dict[int, Dict[str, Any]] = {}
+    for row in cur.fetchall():
+        product_id = int(row["id"])
+        if product_id not in products:
+            products[product_id] = {
+                "id": product_id,
+                "name": str(row["name"]),
+                "brand": row["brand"],
+                "aliases": _load_aliases(row["aliases_json"]),
+                "pieces": int(row["pieces"]) if row["pieces"] is not None else 1,
+                "volume_l": row["volume_l"],
+                "weight_g": row["weight_g"],
+                "embeddings": [],
+            }
+        if row["embedding_json"]:
+            products[product_id]["embeddings"].append(json.loads(row["embedding_json"]))
+
+    con.close()
+    return list(products.values())
+
+
+def add_sample(product_id: int, image_path: str, embedding: List[float]) -> int:
+    con = connect()
+    cur = con.cursor()
+    cur.execute(
+        "INSERT INTO samples(product_id, image_path, embedding_json) VALUES (?,?,?)",
+        (product_id, image_path, json.dumps(embedding)),
+    )
+    con.commit()
+    sample_id = int(cur.lastrowid)
+    con.close()
+    return sample_id
+
+
+def refresh_sample_embeddings(embedding_builder: Callable[[Path], Optional[List[float]]]) -> int:
+    con = connect()
+    cur = con.cursor()
+    rows = cur.execute("SELECT id, image_path FROM samples ORDER BY id").fetchall()
+    updated = 0
+
+    for row in rows:
+        image_path = DATA_DIR / str(row["image_path"])
+        if not image_path.exists():
+            continue
+
+        embedding = embedding_builder(image_path)
+        if not embedding:
+            continue
+
+        cur.execute(
+            "UPDATE samples SET embedding_json = ? WHERE id = ?",
+            (json.dumps(embedding), int(row["id"])),
+        )
+        updated += 1
+
+    con.commit()
+    con.close()
+    return updated
+
+
+def log_scan_feedback(
+    *,
+    saved_image_path: str,
+    predicted_product_id: Optional[int],
+    predicted_name: Optional[str],
+    predicted_brand: Optional[str],
+    predicted_confidence: Optional[float],
+    confirmed_product_id: int,
+    confirmed_name: str,
+    confirmed_brand: Optional[str],
+    was_correct: bool,
+    ocr_text: Optional[str],
+    candidates: List[Dict[str, Any]],
+) -> int:
+    con = connect()
+    cur = con.cursor()
+    cur.execute(
+        """
+        INSERT INTO scan_feedback(
+            saved_image_path,
+            predicted_product_id,
+            predicted_name,
+            predicted_brand,
+            predicted_confidence,
+            confirmed_product_id,
+            confirmed_name,
+            confirmed_brand,
+            was_correct,
+            ocr_text,
+            candidates_json
+        )
+        VALUES(?,?,?,?,?,?,?,?,?,?,?)
+        """,
+        (
+            saved_image_path,
+            predicted_product_id,
+            predicted_name,
+            predicted_brand,
+            predicted_confidence,
+            confirmed_product_id,
+            confirmed_name,
+            confirmed_brand,
+            1 if was_correct else 0,
+            ocr_text,
+            json.dumps(candidates, ensure_ascii=True),
+        ),
+    )
+    con.commit()
+    feedback_id = int(cur.lastrowid)
+    con.close()
+    return feedback_id
+
 
 def _replace_recipe_ingredients(cur: sqlite3.Cursor, recipe_id: int, ingredients: List[Dict[str, Any]]) -> None:
     cur.execute("DELETE FROM recipe_ingredients WHERE recipe_id = ?", (recipe_id,))

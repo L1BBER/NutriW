@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import json
 import re
 import unicodedata
 import uuid
+from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -14,10 +14,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from . import db
-from .ocr import run_ocr
-from .vision import aggregate_by_product, image_embedding_bgr, top_k_similar
+from .ocr import OcrResult, run_ocr
+from .recognition import normalize_text as normalize_match_text
+from .recognition import rank_catalog
+from .vision import image_embedding_bgr
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -27,7 +30,7 @@ jinja = Environment(
     autoescape=select_autoescape(["html", "xml"]),
 )
 
-app = FastAPI(title="NutriW API", version="1.0")
+app = FastAPI(title="NutriW API", version="1.1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,13 +40,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Static files for stored training images and other data assets.
 app.mount("/static", StaticFiles(directory=str(db.DATA_DIR)), name="static")
+
+
+def _embedding_for_saved_image(image_path: Path) -> Optional[List[float]]:
+    try:
+        raw = image_path.read_bytes()
+    except OSError:
+        return None
+    image_bgr = _decode_image_bytes(raw)
+    if image_bgr is None:
+        return None
+    return image_embedding_bgr(image_bgr)
 
 
 @app.on_event("startup")
 def _startup() -> None:
     db.init_db()
+    db.refresh_sample_embeddings(_embedding_for_saved_image)
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -51,16 +65,11 @@ def favicon() -> Response:
     return Response(status_code=204)
 
 
-# --------------------------
-# Helpers
-# --------------------------
-
-
-def _parse_optional_number(raw_value: Optional[str], field_name: str) -> Optional[float]:
+def _parse_optional_number(raw_value: Any, field_name: str) -> Optional[float]:
     if raw_value is None:
         return None
 
-    value = raw_value.strip()
+    value = str(raw_value).strip()
     if not value:
         return None
 
@@ -75,8 +84,8 @@ def _parse_optional_number(raw_value: Optional[str], field_name: str) -> Optiona
     return parsed
 
 
-def _parse_pieces(raw_value: str) -> int:
-    value = raw_value.strip()
+def _parse_pieces(raw_value: Any) -> int:
+    value = str(raw_value).strip()
     if not value:
         raise ValueError("pieces is required")
 
@@ -89,6 +98,26 @@ def _parse_pieces(raw_value: str) -> int:
         raise ValueError("pieces must be greater than 0")
 
     return parsed
+
+
+def _parse_aliases(raw_value: Any) -> List[str]:
+    if raw_value is None:
+        return []
+    if isinstance(raw_value, list):
+        values = raw_value
+    else:
+        values = re.split(r"[,;\n]", str(raw_value))
+
+    aliases: List[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value).strip()
+        normalized = normalize_match_text(text)
+        if not text or not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        aliases.append(text)
+    return aliases
 
 
 def _slugify_filename_part(value: str) -> str:
@@ -106,6 +135,37 @@ def _safe_training_image_name(product_name: str, product_id: int, original_filen
     unique_suffix = uuid.uuid4().hex[:8]
     product_slug = _slugify_filename_part(product_name)
     return f"{product_slug}_{product_id}_{unique_suffix}{extension}"
+
+
+def _decode_image_bytes(raw: bytes) -> Optional[np.ndarray]:
+    if not raw:
+        return None
+
+    try:
+        with Image.open(BytesIO(raw)) as image:
+            image = ImageOps.exif_transpose(image).convert("RGB")
+            array = np.asarray(image)
+    except (UnidentifiedImageError, OSError, ValueError):
+        return None
+
+    if array.size == 0:
+        return None
+
+    return cv2.cvtColor(array, cv2.COLOR_RGB2BGR)
+
+
+def _encode_image_bytes(image_bgr: np.ndarray) -> bytes:
+    ok, encoded = cv2.imencode(".jpg", image_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
+    if not ok:
+        raise ValueError("Failed to encode image")
+    return encoded.tobytes()
+
+
+def _relative_data_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(db.DATA_DIR))
+    except ValueError:
+        return str(path)
 
 
 def _normalize_recipe_payload(payload: Dict[str, Any]) -> tuple[str, str, int, List[Dict[str, Any]]]:
@@ -162,135 +222,77 @@ def _normalize_recipe_payload(payload: Dict[str, Any]) -> tuple[str, str, int, L
     return title, steps, servings, ingredients
 
 
-def _confidence_logic(final_conf: float, gap: float) -> Dict[str, Any]:
+def _confidence_logic(final_confidence: float, gap: float) -> Dict[str, Any]:
     warnings: List[str] = []
     need_review = False
 
-    if final_conf < 0.75:
+    if final_confidence < 0.72:
         need_review = True
         warnings.append("Low confidence. Please confirm or edit product info.")
-    if gap < 0.08:
+    if gap < 0.06:
         need_review = True
         warnings.append("Ambiguous match. Multiple products look similar.")
 
-    if not warnings:
-        warnings.append("OK")
-
-    return {"need_user_review": need_review, "warnings": [warning for warning in warnings if warning != "OK"]}
+    return {"need_user_review": need_review, "warnings": warnings}
 
 
-def _fuse_scores(ocr_conf: float, img_conf: float) -> float:
-    # OCR is often weaker; image embedding is stronger baseline here.
-    w_txt, w_img = 0.40, 0.60
-    return float(w_txt * ocr_conf + w_img * img_conf)
+def _serialize_ocr(ocr_result: OcrResult) -> Dict[str, Any]:
+    return {
+        "text": ocr_result.text,
+        "net": ocr_result.net,
+        "fat_percent": ocr_result.fat_percent,
+        "kcal_100": ocr_result.kcal_100,
+        "p_100": ocr_result.p_100,
+        "f_100": ocr_result.f_100,
+        "c_100": ocr_result.c_100,
+        "confidence": round(float(ocr_result.confidence), 3),
+    }
 
 
-def _parse_percent_from_name(name: str) -> Optional[float]:
-    match = re.search(r"(\d+(?:[\.,]\d+)?)\s*%", name)
-    if not match:
-        return None
-    try:
-        return float(match.group(1).replace(",", "."))
-    except Exception:
-        return None
-
-
-def _parse_net_from_name(name: str) -> Optional[str]:
-    match = re.search(r"(\d+(?:[\.,]\d+)?)\s*(kg|g|ml|l)\b", name.lower())
-    if not match:
-        return None
-    value = match.group(1).replace(",", ".")
-    unit = match.group(2)
-    return f"{value} {unit}"
-
-
-def _adjust_similarity_with_ocr(product_name: str, base_similarity: float, ocr_result: Any) -> float:
-    """Re-rank visual matches using OCR-extracted hints."""
-    similarity = float(base_similarity)
-
-    ocr_percent = getattr(ocr_result, "fat_percent", None)
-    product_percent = _parse_percent_from_name(product_name)
-    if ocr_percent is not None and product_percent is not None:
-        diff = abs(ocr_percent - product_percent)
-        if diff <= 0.2:
-            similarity += 0.10
-        elif diff >= 0.6:
-            similarity -= 0.18
-
-    ocr_net = getattr(ocr_result, "net", None)
-    product_net = _parse_net_from_name(product_name)
-    if ocr_net and product_net and ocr_net == product_net:
-        similarity += 0.05
-
-    return max(0.0, min(1.0, similarity))
-
-
-# --------------------------
-# Core scan pipeline
-# --------------------------
-
-
-@app.post("/scan/confirm")
-async def scan_confirm(image: UploadFile = File(...)):
-    """Step 1 OCR + Step 2 visual analysis."""
-    raw = await image.read()
-    np_arr = np.frombuffer(raw, np.uint8)
-    img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-
-    if img is None:
-        return {"products": [], "recipes": [], "warnings": ["Invalid image"], "need_user_review": True}
-
-    ocr_result = run_ocr(img)
-    embedding = image_embedding_bgr(img)
-    samples = db.load_samples()
-
-    if not samples:
-        product = {
-            "name": "",
-            "brand": None,
-            "amount": ocr_result.net,
-            "confidence": 0.0,
-            "candidates": [],
-            "fields": {
-                "ocrText": ocr_result.text,
-                "net": ocr_result.net,
-                "fat_percent": ocr_result.fat_percent,
-                "kcal_100": ocr_result.kcal_100,
-                "p_100": ocr_result.p_100,
-                "f_100": ocr_result.f_100,
-                "c_100": ocr_result.c_100,
-            },
-        }
-        return {
-            "products": [product],
-            "recipes": [],
-            "warnings": ["No training data. Please add training samples."],
-            "need_user_review": True,
-        }
-
-    scored = top_k_similar(embedding, samples, k=25)
-    aggregated = aggregate_by_product(scored, top_n=5)
-
-    reranked = []
-    for _, product_name, similarity in aggregated:
-        adjusted_similarity = _adjust_similarity_with_ocr(product_name, similarity, ocr_result)
-        reranked.append((product_name, similarity, adjusted_similarity))
-    reranked.sort(key=lambda item: item[2], reverse=True)
-
-    candidates = [{"name": product_name, "confidence": round(adjusted_similarity, 3)} for product_name, _, adjusted_similarity in reranked]
-    best_similarity = reranked[0][2] if reranked else 0.0
-    second_similarity = reranked[1][2] if len(reranked) > 1 else 0.0
-    gap = float(best_similarity - second_similarity)
-
-    final_confidence = _fuse_scores(ocr_result.confidence, best_similarity)
-    confidence_logic = _confidence_logic(final_confidence, gap)
-
-    best_name = candidates[0]["name"] if candidates else ""
+def _fallback_scan_payload(ocr_result: OcrResult, warning: str) -> Dict[str, Any]:
     product = {
-        "name": best_name,
+        "name": "",
         "brand": None,
         "amount": ocr_result.net,
-        "confidence": round(final_confidence, 2),
+        "confidence": 0.0,
+        "candidates": [],
+        "fields": {
+            "ocrText": ocr_result.text,
+            "net": ocr_result.net,
+            "fat_percent": ocr_result.fat_percent,
+            "kcal_100": ocr_result.kcal_100,
+            "p_100": ocr_result.p_100,
+            "f_100": ocr_result.f_100,
+            "c_100": ocr_result.c_100,
+        },
+    }
+    return {
+        "products": [product],
+        "recipes": [],
+        "warnings": [warning],
+        "need_user_review": True,
+    }
+
+
+def _analyze_image(image_bgr: np.ndarray, *, top_n: int = 5) -> Dict[str, Any]:
+    ocr_result = run_ocr(image_bgr)
+    embedding = image_embedding_bgr(image_bgr)
+    catalog = db.load_product_catalog()
+    candidates = rank_catalog(embedding, ocr_result, catalog, top_n=top_n) if catalog else []
+    return {
+        "ocr": ocr_result,
+        "embedding": embedding,
+        "candidates": candidates,
+        "catalog_size": len(catalog),
+    }
+
+
+def _build_product_response(candidate: Dict[str, Any], ocr_result: OcrResult, candidates: List[Dict[str, Any]]) -> Dict[str, Any]:
+    return {
+        "name": candidate["name"],
+        "brand": candidate.get("brand"),
+        "amount": ocr_result.net,
+        "confidence": round(float(candidate["confidence"]), 2),
         "candidates": candidates,
         "fields": {
             "ocrText": ocr_result.text,
@@ -303,12 +305,34 @@ async def scan_confirm(image: UploadFile = File(...)):
         },
     }
 
+
+@app.post("/scan/confirm")
+async def scan_confirm(image: UploadFile = File(...)):
+    raw = await image.read()
+    image_bgr = _decode_image_bytes(raw)
+    if image_bgr is None:
+        return {"products": [], "recipes": [], "warnings": ["Invalid image"], "need_user_review": True}
+
+    analysis = _analyze_image(image_bgr, top_n=5)
+    ocr_result = analysis["ocr"]
+    candidates = analysis["candidates"]
+
+    if not analysis["catalog_size"]:
+        return _fallback_scan_payload(ocr_result, "No training data. Please add training samples.")
+    if not candidates:
+        return _fallback_scan_payload(ocr_result, "No confident product match. Please confirm or edit.")
+
+    best_candidate = candidates[0]
+    second_confidence = candidates[1]["confidence"] if len(candidates) > 1 else 0.0
+    gap = float(best_candidate["confidence"] - second_confidence)
+    confidence_logic = _confidence_logic(float(best_candidate["confidence"]), gap)
+
     recipes = []
     if not confidence_logic["need_user_review"]:
-        recipes = db.get_recipes_for_products([best_name], max_missing=2)
+        recipes = db.get_recipes_for_products([best_candidate["name"]], max_missing=2)
 
     return {
-        "products": [product],
+        "products": [_build_product_response(best_candidate, ocr_result, candidates)],
         "recipes": recipes,
         "warnings": confidence_logic["warnings"],
         "need_user_review": confidence_logic["need_user_review"],
@@ -317,16 +341,10 @@ async def scan_confirm(image: UploadFile = File(...)):
 
 @app.post("/scan/confirm_user_edit")
 async def scan_confirm_user_edit(payload: Dict[str, Any]):
-    """User confirms/edits products; server returns recipe suggestions."""
     products = payload.get("products", [])
-    names = [product.get("name", "") for product in products]
+    names = [str(product.get("name", "")).strip() for product in products]
     recipes = db.get_recipes_for_products(names, max_missing=2)
     return {"recipes": recipes}
-
-
-# --------------------------
-# Training endpoints
-# --------------------------
 
 
 @app.post("/train/add")
@@ -335,9 +353,10 @@ async def train_add(
     pieces: str = Form(...),
     volume_l: Optional[str] = Form(None),
     weight_g: Optional[str] = Form(None),
+    brand: Optional[str] = Form(None),
+    aliases: Optional[str] = Form(None),
     image: UploadFile = File(...),
 ):
-    """Store product metadata and a training image."""
     product_name = product_name.strip()
     if not product_name:
         return {"ok": False, "error": "product_name is required"}
@@ -346,6 +365,7 @@ async def train_add(
         parsed_pieces = _parse_pieces(pieces)
         parsed_volume_l = _parse_optional_number(volume_l, "volume_l")
         parsed_weight_g = _parse_optional_number(weight_g, "weight_g")
+        parsed_aliases = _parse_aliases(aliases)
     except ValueError as exc:
         return {"ok": False, "error": str(exc)}
 
@@ -353,21 +373,24 @@ async def train_add(
         return {"ok": False, "error": "Use either volume_l or weight_g, not both"}
 
     raw = await image.read()
-    if not raw:
-        return {"ok": False, "error": "Image file is empty"}
-
-    np_arr = np.frombuffer(raw, np.uint8)
-    img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-    if img is None:
+    image_bgr = _decode_image_bytes(raw)
+    if image_bgr is None:
         return {"ok": False, "error": "Invalid image"}
 
-    embedding = image_embedding_bgr(img)
-    product_id = db.upsert_product(product_name, parsed_pieces, parsed_volume_l, parsed_weight_g)
+    embedding = image_embedding_bgr(image_bgr)
+    product_id = db.upsert_product(
+        product_name,
+        parsed_pieces,
+        parsed_volume_l,
+        parsed_weight_g,
+        brand=brand,
+        aliases=parsed_aliases,
+    )
 
     out_path = db.IMAGES_DIR / _safe_training_image_name(product_name, product_id, image.filename)
     out_path.write_bytes(raw)
 
-    sample_id = db.add_sample(product_id, str(out_path.relative_to(db.DATA_DIR)), embedding)
+    sample_id = db.add_sample(product_id, _relative_data_path(out_path), embedding)
     return {"ok": True, "product_id": product_id, "sample_id": sample_id}
 
 
@@ -376,26 +399,117 @@ def train_products():
     return {"products": db.list_products()}
 
 
-# --------------------------
-# Recipe management
-# --------------------------
+@app.post("/trainer/predict")
+async def trainer_predict(image: UploadFile = File(...)):
+    raw = await image.read()
+    image_bgr = _decode_image_bytes(raw)
+    if image_bgr is None:
+        return {"ok": False, "error": "Invalid image"}
+
+    analysis = _analyze_image(image_bgr, top_n=6)
+    token = uuid.uuid4().hex
+    pending_path = db.TRAINER_PENDING_DIR / f"{token}.jpg"
+    pending_path.write_bytes(_encode_image_bytes(image_bgr))
+
+    prediction = analysis["candidates"][0] if analysis["candidates"] else None
+    return {
+        "ok": True,
+        "token": token,
+        "prediction": prediction,
+        "candidates": analysis["candidates"],
+        "ocr": _serialize_ocr(analysis["ocr"]),
+        "catalog_size": analysis["catalog_size"],
+        "original_filename": image.filename,
+    }
+
+
+@app.post("/trainer/confirm")
+async def trainer_confirm(payload: Dict[str, Any]):
+    token = str(payload.get("token", "")).strip()
+    if not token:
+        return {"ok": False, "error": "token is required"}
+
+    pending_path = db.TRAINER_PENDING_DIR / f"{token}.jpg"
+    if not pending_path.exists():
+        return {"ok": False, "error": "Training session expired. Analyze the photo again."}
+
+    raw = pending_path.read_bytes()
+    image_bgr = _decode_image_bytes(raw)
+    if image_bgr is None:
+        pending_path.unlink(missing_ok=True)
+        return {"ok": False, "error": "Stored image is invalid"}
+
+    name = str(payload.get("name", "")).strip()
+    if not name:
+        return {"ok": False, "error": "name is required"}
+
+    brand = str(payload.get("brand", "")).strip() or None
+    try:
+        pieces = _parse_pieces(payload.get("pieces"))
+        volume_l = _parse_optional_number(payload.get("volume_l"), "volume_l")
+        weight_g = _parse_optional_number(payload.get("weight_g"), "weight_g")
+        aliases = _parse_aliases(payload.get("aliases"))
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+    if volume_l is not None and weight_g is not None:
+        return {"ok": False, "error": "Use either volume_l or weight_g, not both"}
+
+    analysis = _analyze_image(image_bgr, top_n=6)
+    prediction = analysis["candidates"][0] if analysis["candidates"] else None
+    product_id = db.upsert_product(
+        name,
+        pieces,
+        volume_l,
+        weight_g,
+        brand=brand,
+        aliases=aliases,
+    )
+
+    original_filename = str(payload.get("original_filename", "")) or f"{token}.jpg"
+    out_path = db.IMAGES_DIR / _safe_training_image_name(name, product_id, original_filename)
+    out_path.write_bytes(raw)
+
+    embedding = image_embedding_bgr(image_bgr)
+    relative_image_path = _relative_data_path(out_path)
+    sample_id = db.add_sample(product_id, relative_image_path, embedding)
+
+    predicted_name = prediction["name"] if prediction else None
+    predicted_brand = prediction.get("brand") if prediction else None
+    was_correct = False
+    if prediction:
+        was_correct = normalize_match_text(predicted_name or "") == normalize_match_text(name)
+        if brand and predicted_brand:
+            was_correct = was_correct and normalize_match_text(predicted_brand) == normalize_match_text(brand)
+
+    feedback_id = db.log_scan_feedback(
+        saved_image_path=relative_image_path,
+        predicted_product_id=prediction.get("id") if prediction else None,
+        predicted_name=predicted_name,
+        predicted_brand=predicted_brand,
+        predicted_confidence=float(prediction["confidence"]) if prediction else None,
+        confirmed_product_id=product_id,
+        confirmed_name=name,
+        confirmed_brand=brand,
+        was_correct=was_correct,
+        ocr_text=analysis["ocr"].text,
+        candidates=analysis["candidates"],
+    )
+
+    pending_path.unlink(missing_ok=True)
+
+    return {
+        "ok": True,
+        "product_id": product_id,
+        "sample_id": sample_id,
+        "feedback_id": feedback_id,
+        "was_correct": was_correct,
+        "saved_name": name,
+    }
 
 
 @app.post("/recipes/add")
 async def recipes_add(payload: Dict[str, Any]):
-    """Add recipe.
-
-    payload example:
-    {
-      "titlePl": "Owsianka",
-      "stepsPl": "...",
-      "servings": 2,
-      "ingredients": [
-        {"name":"mleko", "amount_text":"200 ml", "grams":200, "required":true},
-        {"name":"platki owsiane", "amount_text":"50 g", "grams":50, "required":true}
-      ]
-    }
-    """
     try:
         title, steps, servings, ingredients = _normalize_recipe_payload(payload)
     except ValueError as exc:
@@ -424,17 +538,21 @@ def recipes_list():
     return {"recipes": db.list_recipes()}
 
 
-# --------------------------
-# Simple Admin UI
-# --------------------------
-
-
 @app.get("/admin", response_class=HTMLResponse)
 def admin_home():
     template = jinja.get_template("admin.html")
     return template.render(
         products=db.list_products(),
         recipes=db.list_recipes(),
+    )
+
+
+@app.get("/trainer", response_class=HTMLResponse)
+def trainer_home():
+    template = jinja.get_template("trainer.html")
+    return template.render(
+        product_count=len(db.list_products()),
+        sample_count=len(db.load_samples()),
     )
 
 

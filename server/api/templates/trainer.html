@@ -1,0 +1,601 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NutriW Trainer</title>
+  <style>
+    :root {
+      --ink: #102028;
+      --muted: #55626e;
+      --line: rgba(16, 32, 40, 0.12);
+      --accent: #0d7a5f;
+      --accent-soft: rgba(13, 122, 95, 0.1);
+      --card: rgba(255, 252, 247, 0.94);
+      --danger: #a43131;
+      --shadow: 0 18px 40px rgba(15, 26, 35, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(255, 214, 153, 0.58), transparent 30%),
+        radial-gradient(circle at bottom left, rgba(148, 209, 188, 0.45), transparent 30%),
+        linear-gradient(180deg, #fffaf2 0%, #f2f6f3 100%);
+    }
+    main { max-width: 980px; margin: 0 auto; padding: 22px 16px 40px; }
+    h1, h2, h3 { margin: 0; }
+    p { margin: 0; }
+    a { color: var(--accent); }
+    .hero {
+      padding: 26px;
+      border-radius: 28px;
+      background: linear-gradient(140deg, rgba(255, 255, 255, 0.95), rgba(245, 252, 248, 0.95));
+      border: 1px solid rgba(13, 122, 95, 0.14);
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 16px;
+    }
+    .hero-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      flex-wrap: wrap;
+      align-items: start;
+    }
+    .hero-copy { display: grid; gap: 10px; max-width: 650px; }
+    .hero-title { font-size: clamp(2rem, 5vw, 3rem); }
+    .muted { color: var(--muted); }
+    .links, .steps { display: flex; gap: 10px; flex-wrap: wrap; }
+    .pill, .step {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 14px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+      font-size: 0.92rem;
+    }
+    .layout {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+      gap: 18px;
+    }
+    .stack { display: grid; gap: 18px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 14px;
+      backdrop-filter: blur(10px);
+    }
+    .preview-shell {
+      border-radius: 22px;
+      border: 1px dashed rgba(13, 122, 95, 0.25);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(242, 249, 245, 0.9));
+      min-height: 280px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      position: relative;
+    }
+    .preview-shell img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+    .preview-note {
+      text-align: center;
+      padding: 22px;
+      color: var(--muted);
+      max-width: 320px;
+      line-height: 1.4;
+    }
+    .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .field { display: grid; gap: 6px; }
+    label { font-weight: 700; font-size: 0.92rem; }
+    input, textarea {
+      width: 100%;
+      border-radius: 16px;
+      border: 1px solid rgba(16, 32, 40, 0.14);
+      background: rgba(255, 255, 255, 0.95);
+      padding: 12px 13px;
+      color: var(--ink);
+      font: inherit;
+    }
+    input:disabled { background: rgba(236, 241, 238, 0.95); color: #71808b; }
+    textarea { min-height: 120px; resize: vertical; }
+    button {
+      padding: 12px 16px;
+      border: 0;
+      border-radius: 16px;
+      background: var(--ink);
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.secondary { background: #ecf1ee; color: var(--ink); }
+    button.ghost {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid rgba(13, 122, 95, 0.22);
+    }
+    button:disabled { opacity: 0.6; cursor: wait; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .status { display: none; padding: 11px 13px; border-radius: 16px; }
+    .status.success { display: block; background: #eef9f1; color: #145f3f; border: 1px solid #c2e5ca; }
+    .status.error { display: block; background: #fff1f1; color: #8a2424; border: 1px solid #efc7c7; }
+    .status.info { display: block; background: #eef6ff; color: #1f4c74; border: 1px solid #cfe1f5; }
+    .prediction-hero {
+      border-radius: 20px;
+      padding: 16px;
+      background: linear-gradient(140deg, rgba(13, 122, 95, 0.1), rgba(255, 255, 255, 0.7));
+      display: grid;
+      gap: 8px;
+    }
+    .score { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.03em; }
+    .candidate-list { display: grid; gap: 8px; }
+    .candidate-button {
+      width: 100%;
+      text-align: left;
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid rgba(16, 32, 40, 0.08);
+      border-radius: 18px;
+      padding: 12px 14px;
+    }
+    .candidate-button strong { display: block; font-size: 0.98rem; }
+    .candidate-meta { margin-top: 4px; color: var(--muted); font-size: 0.84rem; }
+    .ocr-box {
+      border-radius: 20px;
+      border: 1px solid rgba(16, 32, 40, 0.08);
+      background: rgba(255, 255, 255, 0.82);
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.82rem;
+      color: #31414d;
+    }
+    .hidden { display: none !important; }
+    .field-help { font-size: 0.84rem; color: var(--muted); }
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+      .field-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <div class="hero-top">
+        <div class="hero-copy">
+          <div class="step">Training App</div>
+          <h1 class="hero-title">NutriW Trainer</h1>
+          <p class="muted">Take a product photo, let the AI suggest what it sees, confirm or correct the fields, and save that example directly into the training set. This page is designed to work well on a phone browser.</p>
+        </div>
+        <div class="links">
+          <a class="pill" href="/admin">Open Admin</a>
+          <a class="pill" href="/docs">Open API Docs</a>
+        </div>
+      </div>
+      <div class="steps">
+        <div class="step">1. Capture</div>
+        <div class="step">2. Review AI guess</div>
+        <div class="step">3. Confirm or correct</div>
+      </div>
+      <p class="muted">Current catalog: {{ product_count }} products, {{ sample_count }} training samples.</p>
+    </section>
+
+    <section class="layout">
+      <div class="stack">
+        <div class="card">
+          <div>
+            <h2>Capture a product</h2>
+            <p class="muted">Use the phone camera directly or select a photo from the gallery.</p>
+          </div>
+          <div class="preview-shell">
+            <img id="preview-image" alt="Selected product preview" />
+            <div id="preview-note" class="preview-note">No photo selected yet. Choose a product photo with a visible front label for the best result.</div>
+          </div>
+          <div class="field">
+            <label for="photo-input">Photo</label>
+            <input id="photo-input" type="file" accept="image/*" capture="environment" />
+          </div>
+          <div class="actions">
+            <button id="analyze-button" type="button">Analyze product</button>
+            <button id="reset-button" type="button" class="secondary">Reset</button>
+          </div>
+          <div id="trainer-status" class="status"></div>
+        </div>
+
+        <div id="confirm-card" class="card hidden">
+          <div>
+            <h2>Confirm or correct the result</h2>
+            <p class="muted">Everything below is editable. If the AI guessed incorrectly, just correct it and save.</p>
+          </div>
+
+          <form id="confirm-form">
+            <input id="trainer-token" type="hidden" />
+            <input id="original-filename" type="hidden" />
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="product-name">Product name</label>
+                <input id="product-name" type="text" placeholder="e.g. Mleko 3,2% bez laktozy" required />
+              </div>
+              <div class="field">
+                <label for="product-brand">Brand</label>
+                <input id="product-brand" type="text" placeholder="e.g. Mleczna Dolina" />
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="product-aliases">Aliases</label>
+              <input id="product-aliases" type="text" placeholder="e.g. milk lactose free, mleko bez laktozy" />
+              <div class="field-help">Aliases are optional, but very useful when OCR reads partial or noisy label text.</div>
+            </div>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="product-pieces">Pieces</label>
+                <input id="product-pieces" type="number" min="1" step="1" value="1" required />
+              </div>
+              <div class="field">
+                <label for="product-volume">Volume in liters</label>
+                <input id="product-volume" type="number" min="0.001" step="0.001" placeholder="e.g. 1.0" />
+              </div>
+            </div>
+
+            <div class="field-grid">
+              <div class="field">
+                <label for="product-weight">Weight in grams</label>
+                <input id="product-weight" type="number" min="0.1" step="0.1" placeholder="e.g. 1000" />
+              </div>
+              <div class="field">
+                <label>Save action</label>
+                <div class="field-help" style="padding-top: 13px;">When you save, the current photo becomes a new training sample and the system records whether the AI was right.</div>
+              </div>
+            </div>
+
+            <div class="field-help">Liters and grams are mutually exclusive. Pieces are always required.</div>
+
+            <div class="actions" style="margin-top: 12px;">
+              <button id="save-training-button" type="submit">Save training sample</button>
+              <button id="use-top-candidate-button" type="button" class="ghost">Use top AI candidate</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div id="prediction-card" class="card hidden">
+          <div>
+            <h2>AI prediction</h2>
+            <p class="muted">The strongest current guess plus the evidence used for reranking.</p>
+          </div>
+          <div id="prediction-hero" class="prediction-hero">
+            <div class="muted">Waiting for analysis...</div>
+          </div>
+          <div class="candidate-list" id="candidate-list"></div>
+        </div>
+
+        <div id="ocr-card" class="card hidden">
+          <div>
+            <h2>OCR evidence</h2>
+            <p class="muted">Helpful when the AI guess is close but not perfect.</p>
+          </div>
+          <div class="ocr-box">
+            <div id="ocr-summary" class="muted">No OCR data yet.</div>
+            <pre id="ocr-text">No OCR text yet.</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const photoInput = document.getElementById("photo-input");
+    const analyzeButton = document.getElementById("analyze-button");
+    const resetButton = document.getElementById("reset-button");
+    const previewImage = document.getElementById("preview-image");
+    const previewNote = document.getElementById("preview-note");
+    const trainerStatus = document.getElementById("trainer-status");
+    const confirmCard = document.getElementById("confirm-card");
+    const predictionCard = document.getElementById("prediction-card");
+    const ocrCard = document.getElementById("ocr-card");
+    const predictionHero = document.getElementById("prediction-hero");
+    const candidateList = document.getElementById("candidate-list");
+    const ocrSummary = document.getElementById("ocr-summary");
+    const ocrText = document.getElementById("ocr-text");
+    const confirmForm = document.getElementById("confirm-form");
+    const tokenInput = document.getElementById("trainer-token");
+    const originalFilenameInput = document.getElementById("original-filename");
+    const productNameInput = document.getElementById("product-name");
+    const productBrandInput = document.getElementById("product-brand");
+    const productAliasesInput = document.getElementById("product-aliases");
+    const productPiecesInput = document.getElementById("product-pieces");
+    const productVolumeInput = document.getElementById("product-volume");
+    const productWeightInput = document.getElementById("product-weight");
+    const useTopCandidateButton = document.getElementById("use-top-candidate-button");
+
+    let currentPreviewUrl = null;
+    let latestPrediction = null;
+
+    function showStatus(message, kind) {
+      trainerStatus.textContent = message;
+      trainerStatus.className = "status " + kind;
+    }
+
+    function clearStatus() {
+      trainerStatus.textContent = "";
+      trainerStatus.className = "status";
+    }
+
+    function updatePreview(file) {
+      if (currentPreviewUrl) {
+        URL.revokeObjectURL(currentPreviewUrl);
+        currentPreviewUrl = null;
+      }
+
+      if (!file) {
+        previewImage.style.display = "none";
+        previewImage.removeAttribute("src");
+        previewNote.style.display = "block";
+        return;
+      }
+
+      currentPreviewUrl = URL.createObjectURL(file);
+      previewImage.src = currentPreviewUrl;
+      previewImage.style.display = "block";
+      previewNote.style.display = "none";
+    }
+
+    function syncExclusiveFields() {
+      const hasVolume = productVolumeInput.value.trim() !== "";
+      const hasWeight = productWeightInput.value.trim() !== "";
+
+      if (hasVolume) {
+        productWeightInput.value = "";
+        productWeightInput.disabled = true;
+      } else {
+        productWeightInput.disabled = false;
+      }
+
+      if (hasWeight) {
+        productVolumeInput.value = "";
+        productVolumeInput.disabled = true;
+      } else {
+        productVolumeInput.disabled = false;
+      }
+    }
+
+    function fillFormFromCandidate(candidate) {
+      latestPrediction = candidate || null;
+      productNameInput.value = candidate?.name || "";
+      productBrandInput.value = candidate?.brand || "";
+      productAliasesInput.value = Array.isArray(candidate?.aliases) ? candidate.aliases.join(", ") : "";
+      productPiecesInput.value = candidate?.pieces || 1;
+      productVolumeInput.value = candidate?.volume_l ?? "";
+      productWeightInput.value = candidate?.weight_g ?? "";
+      syncExclusiveFields();
+    }
+
+    function renderPrediction(prediction) {
+      if (!prediction) {
+        predictionHero.innerHTML = `
+          <div class="muted">No strong candidate yet.</div>
+          <div>Enter the correct product manually below and save it as a new training sample.</div>
+        `;
+        return;
+      }
+
+      const score = Math.round((prediction.confidence || 0) * 100);
+      predictionHero.innerHTML = `
+        <div class="muted">Top guess</div>
+        <div class="score">${score}%</div>
+        <div><strong>${prediction.name}</strong>${prediction.brand ? ` · ${prediction.brand}` : ""}</div>
+        <div class="muted">
+          image ${Math.round((prediction.image_score || 0) * 100)}% ·
+          text ${Math.round((prediction.text_score || 0) * 100)}% ·
+          measure ${Math.round((prediction.measurement_score || 0) * 100)}%
+        </div>
+      `;
+    }
+
+    function renderCandidates(candidates) {
+      candidateList.innerHTML = "";
+      (candidates || []).forEach((candidate, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "candidate-button";
+        button.innerHTML = `
+          <strong>${index + 1}. ${candidate.name}${candidate.brand ? ` · ${candidate.brand}` : ""}</strong>
+          <div class="candidate-meta">
+            confidence ${Math.round((candidate.confidence || 0) * 100)}% ·
+            ${candidate.sample_count || 0} samples
+          </div>
+        `;
+        button.addEventListener("click", () => fillFormFromCandidate(candidate));
+        candidateList.appendChild(button);
+      });
+
+      if (!candidateList.children.length) {
+        const emptyState = document.createElement("div");
+        emptyState.className = "muted";
+        emptyState.textContent = "No candidates yet. You can still add the product manually below.";
+        candidateList.appendChild(emptyState);
+      }
+    }
+
+    function renderOcr(ocr) {
+      if (!ocr) {
+        ocrSummary.textContent = "No OCR data.";
+        ocrText.textContent = "No OCR text.";
+        return;
+      }
+
+      const parts = [];
+      if (ocr.net) parts.push(`net: ${ocr.net}`);
+      if (ocr.fat_percent !== null && ocr.fat_percent !== undefined) parts.push(`fat: ${ocr.fat_percent}%`);
+      if (ocr.confidence !== null && ocr.confidence !== undefined) parts.push(`ocr confidence: ${Math.round(ocr.confidence * 100)}%`);
+      ocrSummary.textContent = parts.length ? parts.join(" · ") : "OCR found no strong structured fields.";
+      ocrText.textContent = ocr.text || "OCR did not return readable text for this image.";
+    }
+
+    function resetTrainer(options = {}) {
+      if (!options.preserveStatus) {
+        clearStatus();
+      }
+      photoInput.value = "";
+      tokenInput.value = "";
+      originalFilenameInput.value = "";
+      latestPrediction = null;
+      updatePreview(null);
+      fillFormFromCandidate(null);
+      confirmCard.classList.add("hidden");
+      predictionCard.classList.add("hidden");
+      ocrCard.classList.add("hidden");
+      predictionHero.innerHTML = "";
+      candidateList.innerHTML = "";
+      ocrSummary.textContent = "No OCR data yet.";
+      ocrText.textContent = "No OCR text yet.";
+    }
+
+    photoInput.addEventListener("change", () => {
+      clearStatus();
+      updatePreview(photoInput.files?.[0] || null);
+    });
+
+    productVolumeInput.addEventListener("input", syncExclusiveFields);
+    productWeightInput.addEventListener("input", syncExclusiveFields);
+
+    analyzeButton.addEventListener("click", async () => {
+      const file = photoInput.files?.[0];
+      if (!file) {
+        showStatus("Select a product photo first.", "error");
+        return;
+      }
+
+      analyzeButton.disabled = true;
+      clearStatus();
+      showStatus("Analyzing the product photo...", "info");
+
+      const formData = new FormData();
+      formData.append("image", file);
+
+      try {
+        const response = await fetch("/trainer/predict", {
+          method: "POST",
+          body: formData
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          showStatus(data.error || "Failed to analyze the photo.", "error");
+          return;
+        }
+
+        tokenInput.value = data.token || "";
+        originalFilenameInput.value = data.original_filename || file.name || "";
+        fillFormFromCandidate(data.prediction || null);
+        renderPrediction(data.prediction || null);
+        renderCandidates(data.candidates || []);
+        renderOcr(data.ocr || null);
+
+        confirmCard.classList.remove("hidden");
+        predictionCard.classList.remove("hidden");
+        ocrCard.classList.remove("hidden");
+
+        if (!data.catalog_size) {
+          showStatus("The catalog is still empty, so this photo will help create the first strong examples.", "info");
+        } else {
+          showStatus("AI analysis ready. Confirm or correct the result below.", "success");
+        }
+      } catch (error) {
+        showStatus("Failed to analyze the photo. Check the server connection.", "error");
+      } finally {
+        analyzeButton.disabled = false;
+      }
+    });
+
+    useTopCandidateButton.addEventListener("click", () => {
+      fillFormFromCandidate(latestPrediction);
+      showStatus("Top AI candidate copied into the form.", "info");
+    });
+
+    confirmForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearStatus();
+
+      const payload = {
+        token: tokenInput.value.trim(),
+        original_filename: originalFilenameInput.value.trim(),
+        name: productNameInput.value.trim(),
+        brand: productBrandInput.value.trim(),
+        aliases: productAliasesInput.value.trim(),
+        pieces: productPiecesInput.value.trim(),
+        volume_l: productVolumeInput.value.trim(),
+        weight_g: productWeightInput.value.trim()
+      };
+
+      if (!payload.token) {
+        showStatus("Analyze a photo first.", "error");
+        return;
+      }
+
+      const saveButton = document.getElementById("save-training-button");
+      saveButton.disabled = true;
+      showStatus("Saving training sample...", "info");
+
+      try {
+        const response = await fetch("/trainer/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          showStatus(data.error || "Failed to save training sample.", "error");
+          return;
+        }
+
+        showStatus(
+          data.was_correct
+            ? `Saved sample for ${data.saved_name}. The AI guess was correct.`
+            : `Saved corrected sample for ${data.saved_name}. The AI feedback was recorded.`,
+          "success"
+        );
+        resetTrainer({ preserveStatus: true });
+      } catch (error) {
+        showStatus("Failed to save the sample. Check the server connection.", "error");
+      } finally {
+        saveButton.disabled = false;
+      }
+    });
+
+    resetButton.addEventListener("click", resetTrainer);
+    syncExclusiveFields();
+    resetTrainer();
+  </script>
+</body>
+</html>

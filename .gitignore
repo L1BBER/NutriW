@@ -1,21 +1,10 @@
-# Git internals and patch leftovers
+# Git internals and leftovers
 .git/
 **/.git/
 *.orig
 *.rej
 
-# Editors and IDEs
-.idea/
-**/.idea/
-.vscode/
-.fleet/
-*.iml
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Python environments, caches, and local libraries
+# Local libraries and environments
 venv/
 .venv/
 env/
@@ -23,11 +12,14 @@ ENV/
 **/venv/
 **/.venv/
 site-packages/
+*.egg-info/
+.eggs/
+*.pyd
+
+# Caches and generated cache-like artifacts
 __pycache__/
 **/__pycache__/
 *.py[cod]
-*.pyd
-.python-version
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -36,24 +28,7 @@ __pycache__/
 .nox/
 .pyre/
 .cache/
-htmlcov/
-.coverage
-.coverage.*
 pip-wheel-metadata/
-*.egg-info/
-.eggs/
-
-# Logs and temp files
-*.log
-*.tmp
-tmp/
-temp/
-
-# SQLite runtime side files
-*.db-shm
-*.db-wal
-
-# Android / Gradle build artifacts
 .gradle/
 **/.gradle/
 .kotlin/
@@ -61,9 +36,6 @@ temp/
 captures/
 .externalNativeBuild/
 .cxx/
-local.properties
-*.apk
-*.aab
-*.ap_
-*.keystore
-*.jks
+htmlcov/
+.coverage
+.coverage.*
