@@ -1,8 +1,8 @@
 # NutriW
 
 NutriW is a full-stack product recognition project with:
-- an Android scanning app in `android/mobile-app`
-- a FastAPI backend in `server/`
+- an Android scanning app in `android-studio-app/`
+- a FastAPI backend in `pycharm-server/`
 - a dedicated mobile-friendly training web app at `/trainer`
 
 The goal is simple:
@@ -71,9 +71,9 @@ UI and diagnostics:
 ## Data layout
 
 Server data is stored in:
-- `server/data/nutriw.db` - SQLite database
-- `server/data/images/` - saved training images
-- `server/data/trainer_pending/` - temporary trainer uploads before confirmation
+- `pycharm-server/data/nutriw.db` - SQLite database
+- `pycharm-server/data/images/` - saved training images
+- `pycharm-server/data/trainer_pending/` - temporary trainer uploads before confirmation
 
 Important product metadata now stored by the backend:
 - canonical product name
@@ -87,10 +87,11 @@ Important product metadata now stored by the backend:
 
 ## Project structure
 
-- `android/mobile-app` - Kotlin + Jetpack Compose Android client
-- `server/api` - FastAPI app, OCR, ranking, templates, DB helpers
-- `server/scripts` - local helper scripts
-- `server/data` - SQLite data and stored product images
+- `pycharm-server` - open this folder in PyCharm for backend work
+- `android-studio-app` - open this folder in Android Studio for the mobile app
+- `pycharm-server/api` - FastAPI app, OCR, ranking, templates, DB helpers
+- `pycharm-server/scripts` - local helper scripts
+- `pycharm-server/data` - SQLite data and stored product images
 
 ## Run the server
 
@@ -99,11 +100,11 @@ Important product metadata now stored by the backend:
 Quick start from the project root:
 
 ```powershell
-Set-Location .\server
+Set-Location .\pycharm-server
 .\scripts\run-server.ps1
 ```
 
-If you are already inside `server/`, run:
+If you are already inside `pycharm-server/`, run:
 
 ```powershell
 .\scripts\run-server.ps1
@@ -112,7 +113,7 @@ If you are already inside `server/`, run:
 Manual startup on Windows:
 
 ```powershell
-Set-Location .\server
+Set-Location .\pycharm-server
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -128,7 +129,7 @@ After startup:
 
 ### Linux or macOS
 
-From `server/` run:
+From `pycharm-server/` run:
 
 ```bash
 python3 -m venv venv
@@ -139,16 +140,16 @@ uvicorn api.main:app --host 0.0.0.0 --port 8000
 
 ## Android app
 
-Open `android/mobile-app` in Android Studio.
+Open `android-studio-app` in Android Studio.
 
 Open the Android project folder from PowerShell:
 
 ```powershell
-Set-Location .\android\mobile-app
+Set-Location .\android-studio-app
 ```
 
 The server address is configured in:
-- `android/mobile-app/app/src/main/java/com/example/nutriw/data/api/NetworkModule.kt`
+- `android-studio-app/app/src/main/java/com/example/nutriw/data/api/NetworkModule.kt`
 
 Current default:
 - Android Emulator: `http://10.0.2.2:8000`
