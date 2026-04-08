@@ -83,6 +83,50 @@
     }
     input:disabled { background: #f2efe8; color: #7a8390; }
     textarea { min-height: 120px; resize: vertical; }
+    .file-picker {
+      position: relative;
+    }
+    .file-picker input[type="file"] {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+      z-index: 2;
+    }
+    .file-picker-shell {
+      min-height: 52px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px;
+      pointer-events: none;
+    }
+    .file-picker-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: var(--ink);
+      color: #fff;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .file-name {
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .file-picker input[type="file"]:focus + .file-picker-shell {
+      outline: 2px solid rgba(27, 107, 75, 0.18);
+      outline-offset: 2px;
+    }
     button {
       padding: 10px 16px;
       border: 0;
@@ -153,17 +197,17 @@
             <div class="row">
               <div>
                 <label for="product_name">Product name</label>
-                <input id="product_name" name="product_name" placeholder="e.g. Mleko 3,2% bez laktozy" required />
+                <input id="product_name" name="product_name" placeholder="e.g. Lactose-free milk 3.2%" required />
               </div>
               <div>
                 <label for="brand">Brand</label>
-                <input id="brand" name="brand" placeholder="e.g. Mleczna Dolina" />
+                <input id="brand" name="brand" placeholder="e.g. Dairy Valley" />
               </div>
             </div>
 
             <div style="margin-top:10px">
               <label for="aliases">Aliases</label>
-              <input id="aliases" name="aliases" placeholder="e.g. milk lactose free, mleko bez laktozy" />
+              <input id="aliases" name="aliases" placeholder="e.g. lactose free milk, milk 3.2" />
               <div class="field-help">Separate aliases with commas. These help the model match OCR text and user corrections.</div>
             </div>
 
@@ -175,7 +219,13 @@
               </div>
               <div>
                 <label for="image">Photo</label>
-                <input id="image" name="image" type="file" accept="image/*" required />
+                <div class="file-picker">
+                  <input id="image" name="image" type="file" accept="image/*" required />
+                  <div class="file-picker-shell">
+                    <span class="file-picker-button">Choose Photo</span>
+                    <span id="image-file-name" class="file-name">No file selected</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -230,7 +280,7 @@
             </div>
             <div id="ingredients-list" class="stack" style="gap: 10px;"></div>
 
-            <div class="actions">
+            <div class="actions" style="margin-top: 18px;">
               <button id="save-recipe-button" type="submit">Save recipe</button>
               <button id="reset-recipe-button" type="button" class="secondary">Clear form</button>
             </div>
@@ -325,6 +375,12 @@
   <script>
     const volumeInput = document.getElementById("volume_l");
     const weightInput = document.getElementById("weight_g");
+    const imageInput = document.getElementById("image");
+    const imageFileName = document.getElementById("image-file-name");
+
+    function updateFileName(input, label) {
+      label.textContent = input.files && input.files.length ? input.files[0].name : "No file selected";
+    }
 
     function syncExclusiveFields() {
       const hasVolume = volumeInput.value.trim() !== "";
@@ -347,7 +403,9 @@
 
     volumeInput.addEventListener("input", syncExclusiveFields);
     weightInput.addEventListener("input", syncExclusiveFields);
+    imageInput.addEventListener("change", () => updateFileName(imageInput, imageFileName));
     syncExclusiveFields();
+    updateFileName(imageInput, imageFileName);
 
     const recipeForm = document.getElementById("recipe-form");
     const recipeIdInput = document.getElementById("recipe_id");
