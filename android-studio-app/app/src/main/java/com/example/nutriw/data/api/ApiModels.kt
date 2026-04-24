@@ -9,7 +9,7 @@ data class ScanResponse(
 
 data class ProductItem(
     val name: String,
-    val brand: String? = null,
+    val dietaryLabels: List<String> = emptyList(),
     val amount: String? = null,
     val confidence: Double? = null,
     val candidates: List<ProductCandidate> = emptyList(),
@@ -21,6 +21,7 @@ data class RecipeItem(
     val titlePl: String,
     val missing: List<String> = emptyList(),
     val coverage: Double? = null,
+    val dietaryLabels: List<String> = emptyList(),
     val servings: Int? = null,
     val kcalPerPortion: Double? = null
 )
@@ -28,7 +29,6 @@ data class RecipeItem(
 data class ProductCandidate(
     val id: Int? = null,
     val name: String,
-    val brand: String? = null,
     val aliases: List<String> = emptyList(),
     val pieces: Int? = null,
     val volume_l: Double? = null,

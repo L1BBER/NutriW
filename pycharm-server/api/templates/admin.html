@@ -55,11 +55,16 @@
     }
     .layout {
       display: grid;
-      grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+      grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
       gap: 18px;
       margin-top: 20px;
+      align-items: start;
     }
-    .stack { display: grid; gap: 18px; }
+    .stack {
+      display: grid;
+      gap: 18px;
+      align-content: start;
+    }
     .card {
       border-radius: 24px;
       padding: 20px;
@@ -68,9 +73,13 @@
       box-shadow: var(--shadow);
       display: grid;
       gap: 14px;
+      align-content: start;
+    }
+    .is-hidden {
+      display: none !important;
     }
     .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-    .ingredient-row { display: grid; grid-template-columns: 1.2fr 1fr 0.75fr auto auto; gap: 10px; align-items: end; }
+    .ingredient-row { display: grid; grid-template-columns: minmax(180px, 1.45fr) minmax(150px, 1fr) minmax(110px, 0.72fr) auto 46px; gap: 10px; align-items: end; }
     label { display: block; margin-bottom: 6px; font-weight: 700; font-size: 0.93rem; }
     input, textarea {
       width: 100%;
@@ -139,8 +148,83 @@
     }
     button.secondary { background: #e9ecef; color: var(--ink); }
     button.danger { background: var(--danger); }
+    .remove-ingredient-button {
+      width: 46px;
+      min-width: 46px;
+      height: 46px;
+      padding: 0;
+      border-radius: 14px;
+      font-size: 1.25rem;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
     .field-help { font-size: 0.86rem; color: var(--muted); margin-top: 6px; }
     .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .toggle-group {
+      display: inline-flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 6px;
+      border-radius: 999px;
+      background: #f2efe8;
+      border: 1px solid rgba(31, 41, 51, 0.08);
+    }
+    .toggle-button {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+    .toggle-button.is-active {
+      background: var(--ink);
+      color: #fff;
+    }
+    .filter-toolbar {
+      display: grid;
+      gap: 12px;
+    }
+    .filter-section {
+      display: grid;
+      gap: 8px;
+    }
+    .filter-chip-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .filter-chip {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      padding: 8px 12px;
+      border-radius: 999px;
+    }
+    .filter-chip.is-active {
+      background: var(--ink);
+      color: #fff;
+      border-color: var(--ink);
+    }
+    .products-summary {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .inline-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .hidden-panel {
+      display: none;
+    }
     .status { margin-top: 6px; padding: 10px 12px; border-radius: 14px; display: none; }
     .status.success { display: block; background: #edf8f1; color: #155938; border: 1px solid #bee0c7; }
     .status.error { display: block; background: #fdf0f0; color: #8b2222; border: 1px solid #efc6c6; }
@@ -151,7 +235,120 @@
       padding: 14px;
       background: #fff;
     }
+    .selector-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .selector-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fff;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .selector-option input {
+      width: auto;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+    .selector-option-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .tag-chip-icon,
+    .selector-option-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.1rem;
+      min-width: 1.1rem;
+      line-height: 1;
+      font-size: 0.95rem;
+    }
     .meta-line { margin-top: 6px; color: var(--muted); font-size: 0.92rem; }
+    .sample-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .sample-tile {
+      position: relative;
+    }
+    .sample-thumb {
+      display: grid;
+      gap: 6px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .sample-thumb-image {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 16px;
+      border: 1px solid rgba(31, 41, 51, 0.1);
+      background: #f2efe8;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+    }
+    .sample-thumb-caption {
+      font-size: 0.76rem;
+      color: var(--muted);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sample-delete {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      border-radius: 999px;
+      background: rgba(31, 41, 51, 0.88);
+      color: #fff;
+      font-size: 1rem;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 18px rgba(31, 41, 51, 0.16);
+    }
+    .sample-delete:hover {
+      background: var(--danger);
+    }
+    .sample-empty {
+      border: 1px dashed rgba(31, 41, 51, 0.16);
+      border-radius: 16px;
+      padding: 12px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.72);
+      font-size: 0.9rem;
+    }
     ul { margin: 8px 0 0; padding-left: 18px; }
     .badge {
       display: inline-flex;
@@ -166,6 +363,7 @@
       .layout { grid-template-columns: 1fr; }
       .row { grid-template-columns: 1fr; }
       .ingredient-row { grid-template-columns: 1fr; }
+      .selector-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -187,28 +385,22 @@
 
     <section class="layout">
       <div class="stack">
-        <div class="card">
+        <div class="card" id="training-sample-card">
           <div>
             <h2>Add training sample</h2>
-            <p class="muted">Manual upload is still useful when you already know the product label. You can now save brand and aliases to improve future OCR reranking.</p>
+            <p class="muted">Manual upload is still useful when you already know the product label. Save the product name and aliases to improve future OCR reranking.</p>
           </div>
 
-          <form action="/train/add" method="post" enctype="multipart/form-data">
-            <div class="row">
-              <div>
-                <label for="product_name">Product name</label>
-                <input id="product_name" name="product_name" placeholder="e.g. Lactose-free milk 3.2%" required />
-              </div>
-              <div>
-                <label for="brand">Brand</label>
-                <input id="brand" name="brand" placeholder="e.g. Dairy Valley" />
-              </div>
+          <form id="training-sample-form" action="/train/add" method="post" enctype="multipart/form-data">
+            <div>
+              <label for="product_name">Product name</label>
+              <input id="product_name" name="product_name" placeholder="e.g. Lactose-free milk 3.2%" required />
             </div>
 
             <div style="margin-top:10px">
               <label for="aliases">Aliases</label>
               <input id="aliases" name="aliases" placeholder="e.g. lactose free milk, milk 3.2" />
-              <div class="field-help">Separate aliases with commas. These help the model match OCR text and user corrections.</div>
+              <div class="field-help">Separate aliases with commas. These help the model match OCR text and user corrections, and also auto-map labels such as Lactose-Free, Vegan, UHT, Wolny wybieg, or Naturalny.</div>
             </div>
 
             <div style="margin-top:10px" class="row">
@@ -232,20 +424,101 @@
             <div style="margin-top:10px" class="row">
               <div>
                 <label for="volume_l">Volume in liters</label>
-                <input id="volume_l" name="volume_l" type="number" min="0.001" step="0.001" placeholder="e.g. 1.0" />
+                <input id="volume_l" name="volume_l" type="number" min="0" step="0.001" placeholder="e.g. 1.0 or 0 if not used" />
               </div>
               <div>
                 <label for="weight_g">Weight in grams</label>
-                <input id="weight_g" name="weight_g" type="number" min="0.1" step="0.1" placeholder="e.g. 1000" />
+                <input id="weight_g" name="weight_g" type="number" min="0" step="0.1" placeholder="e.g. 1000 or 0 if not used" />
               </div>
             </div>
 
-            <div class="field-help">Fill only one of these two fields: liters or grams.</div>
+            <div class="field-help">Liters and grams are optional for piece-based products such as apples, tomatoes, eggs, or garlic. Use 0 for any field you do not want to save. If both pieces and grams are set, grams per piece are calculated automatically.</div>
 
             <div style="margin-top:12px" class="actions">
               <button type="submit">Upload training sample</button>
               <a class="pill-link" href="/trainer">Prefer the trainer workflow</a>
             </div>
+          </form>
+        </div>
+
+        <div class="card is-hidden" id="product-editor-card">
+          <div>
+            <h2>Product editor</h2>
+            <p class="muted">Select a saved product and edit its metadata. Existing image samples stay attached to the same product.</p>
+          </div>
+
+          <form id="product-edit-form">
+            <input id="product_edit_id" type="hidden" />
+
+            <div>
+              <label for="product_edit_name">Product name</label>
+              <input id="product_edit_name" type="text" placeholder="e.g. Lactose-free milk 3.2%" required />
+            </div>
+
+            <div style="margin-top:10px">
+              <label for="product_edit_aliases">Aliases</label>
+              <input id="product_edit_aliases" type="text" placeholder="e.g. lactose free milk, milk 3.2" />
+              <div class="field-help">Separate aliases with commas. Product labels are inferred automatically from these aliases after saving, including items such as Lactose-Free, UHT, Wolny wybieg, and Naturalny.</div>
+            </div>
+
+            <div style="margin-top:10px" class="row">
+              <div>
+                <label for="product_edit_pieces">Pieces</label>
+                <input id="product_edit_pieces" type="number" min="1" step="1" value="1" required />
+                <div class="field-help">This field is always required.</div>
+              </div>
+              <div>
+                <label for="product_edit_volume">Volume in liters</label>
+                <input id="product_edit_volume" type="number" min="0" step="0.001" placeholder="e.g. 1.0 or 0 if not used" />
+              </div>
+            </div>
+
+            <div style="margin-top:10px" class="row">
+              <div>
+                <label for="product_edit_weight">Weight in grams</label>
+                <input id="product_edit_weight" type="number" min="0" step="0.1" placeholder="e.g. 1000 or 0 if not used" />
+              </div>
+              <div>
+                <label>Inferred labels</label>
+                <div id="product-edit-labels" class="tag-list">
+                  <span class="muted">Select a product to preview inferred dietary labels.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="field-help">Liters and grams are optional for piece-based products. Leave both empty, or use 0, if this product should be tracked only by pieces. When pieces and grams are both set, the system calculates grams per piece automatically.</div>
+
+              <div style="margin-top:12px">
+                <div class="actions" style="justify-content: space-between; align-items: center;">
+                  <label style="margin:0">Attached photos</label>
+                  <span id="product-edit-sample-count" class="badge">0 photos</span>
+                </div>
+                <div class="actions" style="margin-top:10px; align-items:end;">
+                  <div style="flex: 1 1 280px;">
+                    <label for="product_edit_image">Add photo</label>
+                    <div class="file-picker">
+                      <input id="product_edit_image" type="file" accept="image/*" />
+                      <div class="file-picker-shell">
+                        <span class="file-picker-button">Choose Photo</span>
+                        <span id="product-edit-image-file-name" class="file-name">No file selected</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button id="add-product-photo-button" type="button" class="secondary">Add photo</button>
+                </div>
+                <div id="product-edit-samples" class="sample-gallery">
+                  <div class="sample-empty">Select a product to preview its saved training photos.</div>
+                </div>
+              <div class="field-help">Photos stay compact here. Click any thumbnail to open the full image. Exact duplicate uploads are removed automatically.</div>
+            </div>
+
+              <div class="actions" style="margin-top: 12px;">
+                <button id="save-product-button" type="submit">Update product</button>
+                <button id="reset-product-button" type="button" class="secondary">Clear form</button>
+                <button id="delete-product-button" type="button" class="danger">Delete</button>
+              </div>
+
+            <div id="product-status" class="status"></div>
           </form>
         </div>
 
@@ -257,6 +530,7 @@
 
           <form id="recipe-form">
             <input id="recipe_id" type="hidden" />
+            <input id="recipe_source_mode" type="hidden" value="manual" />
 
             <div class="row">
               <div>
@@ -269,9 +543,35 @@
               </div>
             </div>
 
+            <div class="filter-section">
+              <label>Recipe mode</label>
+              <div class="toggle-group" id="recipe-mode-toggle">
+                <button id="recipe-mode-manual" type="button" class="toggle-button is-active" data-mode="manual">Manual ingredients</button>
+                <button id="recipe-mode-auto" type="button" class="toggle-button" data-mode="auto">Auto recipe</button>
+              </div>
+              <div class="field-help">Manual mode lets you edit ingredient rows yourself. Auto recipe mode scans free text, finds ingredient candidates, and fills the list for you.</div>
+            </div>
+
             <div>
               <label for="recipe_steps">Preparation steps</label>
               <textarea id="recipe_steps" placeholder="Describe how to prepare the recipe"></textarea>
+            </div>
+
+            <div id="recipe-auto-panel" class="card hidden-panel" style="padding:16px; background:#fffaf3;">
+              <div>
+                <label for="recipe_source_text">Ingredient source text</label>
+                <textarea id="recipe_source_text" placeholder="Paste an ingredient list or a short free-form recipe text, for example: 2 eggs, 3 tomatoes, 200 g pasta, 1 garlic"></textarea>
+              </div>
+              <div class="actions">
+                <button id="generate-recipe-ingredients-button" type="button">Generate ingredients</button>
+                <span id="recipe-auto-summary" class="inline-note">No automatic ingredients generated yet.</span>
+              </div>
+            </div>
+
+            <div>
+              <label>Recipe labels</label>
+              <div id="recipe-label-selector" class="selector-grid"></div>
+              <div class="field-help">Select any labels that apply to this recipe. You can leave everything unchecked.</div>
             </div>
 
             <div class="actions" style="justify-content: space-between;">
@@ -303,19 +603,65 @@
           {% if products|length == 0 %}
             <p class="muted">No products yet. Add training samples first.</p>
           {% else %}
-            <div class="products-list">
+            <div class="products-summary">
+              <span id="products-summary" class="inline-note">Showing 10 products</span>
+              <div class="actions">
+                <button id="toggle-products-button" type="button" class="secondary">Hide products</button>
+              </div>
+            </div>
+            <div id="products-filters-panel" class="filter-toolbar">
+              <div class="row">
+                <div>
+                  <label for="product-search">Search products</label>
+                  <input id="product-search" type="text" placeholder="Search by name, alias, or badge" />
+                </div>
+              </div>
+              <div class="filter-section">
+                <label>Filters</label>
+                <div id="product-type-filters" class="filter-chip-row"></div>
+                <div id="product-label-filters" class="filter-chip-row"></div>
+              </div>
+            </div>
+            <div id="products-list" class="products-list">
               {% for p in products %}
                 <div class="product-card">
-                  <strong>{{ p.name }}</strong>
-                  {% if p.brand %}<div class="meta-line">Brand: {{ p.brand }}</div>{% endif %}
+                  <div data-product-card-id="{{ p.id }}">
+                  <div class="actions" style="justify-content: space-between; align-items: start;">
+                    <strong>{{ p.name }}</strong>
+                    <button
+                      type="button"
+                      class="secondary edit-product-button"
+                      data-product-id="{{ p.id }}"
+                      data-product="{{ p|tojson|forceescape }}"
+                    >
+                      Edit
+                    </button>
+                  </div>
                   <div class="meta-line">
                     Pieces: {{ p.pieces }}
                     {% if p.volume_l is not none %} | Volume: {{ p.volume_l }} L{% endif %}
                     {% if p.weight_g is not none %} | Weight: {{ p.weight_g }} g{% endif %}
                   </div>
+                  {% if p.piece_based %}
+                    <div class="meta-line">Type: Piece-based product</div>
+                  {% elif p.grams_per_piece is not none %}
+                    <div class="meta-line">Approx. {{ p.grams_per_piece }} g per piece</div>
+                  {% endif %}
+                  <div class="meta-line">Photos: <span class="product-photo-count" data-product-photo-count="{{ p.id }}">{{ p.sample_count }}</span></div>
                   {% if p.aliases %}
                     <div class="meta-line">Aliases: {{ p.aliases|join(', ') }}</div>
                   {% endif %}
+                  {% if p.dietary_labels %}
+                    <div class="tag-list">
+                      {% for label in p.dietary_labels %}
+                        <span class="tag-chip">
+                          <span class="tag-chip-icon" aria-hidden="true">{{ dietary_label_icons.get(label, 'Tag') }}</span>
+                          <span>{{ label }}</span>
+                        </span>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                  </div>
                 </div>
               {% endfor %}
             </div>
@@ -341,6 +687,7 @@
                     <div>
                       <strong>{{ r.title_pl }}</strong>
                       <div class="meta-line">Servings: {{ r.servings }}</div>
+                      <div class="meta-line">Mode: {{ 'Auto recipe' if r.source_mode == 'auto' else 'Manual' }}</div>
                     </div>
                     <button
                       type="button"
@@ -352,6 +699,16 @@
                   </div>
                   {% if r.steps_pl %}
                     <p style="margin-top:10px; white-space: pre-wrap;">{{ r.steps_pl }}</p>
+                  {% endif %}
+                  {% if r.dietary_labels %}
+                    <div class="tag-list">
+                      {% for label in r.dietary_labels %}
+                        <span class="tag-chip">
+                          <span class="tag-chip-icon" aria-hidden="true">{{ dietary_label_icons.get(label, 'Tag') }}</span>
+                          <span>{{ label }}</span>
+                        </span>
+                      {% endfor %}
+                    </div>
                   {% endif %}
                   <div class="meta-line">Ingredients:</div>
                   <ul>
@@ -373,49 +730,662 @@
   </main>
 
   <script>
+    const trainingSampleForm = document.getElementById("training-sample-form");
     const volumeInput = document.getElementById("volume_l");
     const weightInput = document.getElementById("weight_g");
     const imageInput = document.getElementById("image");
     const imageFileName = document.getElementById("image-file-name");
+    const measurementErrorMessage = "Use positive numbers, or leave the field empty / 0 if it is not used.";
 
     function updateFileName(input, label) {
       label.textContent = input.files && input.files.length ? input.files[0].name : "No file selected";
     }
 
-    function syncExclusiveFields() {
-      const hasVolume = volumeInput.value.trim() !== "";
-      const hasWeight = weightInput.value.trim() !== "";
-
-      if (hasVolume) {
-        weightInput.value = "";
-        weightInput.disabled = true;
-      } else {
-        weightInput.disabled = false;
+    function parseMeasurementValue(input) {
+      const rawValue = input.value.trim().replace(",", ".");
+      if (!rawValue) {
+        return null;
       }
 
-      if (hasWeight) {
-        volumeInput.value = "";
-        volumeInput.disabled = true;
-      } else {
-        volumeInput.disabled = false;
+      const parsedValue = Number(rawValue);
+      if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+        return null;
+      }
+
+      return parsedValue;
+    }
+
+    function clearMeasurementValidation(...inputs) {
+      inputs.forEach((input) => input.setCustomValidity(""));
+    }
+
+    function validateMeasurementPair(volumeField, weightField) {
+      clearMeasurementValidation(volumeField, weightField);
+      return true;
+    }
+
+    trainingSampleForm.addEventListener("submit", (event) => {
+      if (!validateMeasurementPair(volumeInput, weightInput)) {
+        event.preventDefault();
+        volumeInput.reportValidity();
+      }
+    });
+
+    volumeInput.addEventListener("input", () => clearMeasurementValidation(volumeInput, weightInput));
+    weightInput.addEventListener("input", () => clearMeasurementValidation(volumeInput, weightInput));
+    imageInput.addEventListener("change", () => updateFileName(imageInput, imageFileName));
+    updateFileName(imageInput, imageFileName);
+
+    const productEditForm = document.getElementById("product-edit-form");
+    const productEditIdInput = document.getElementById("product_edit_id");
+    const productEditNameInput = document.getElementById("product_edit_name");
+    const productEditAliasesInput = document.getElementById("product_edit_aliases");
+    const productEditPiecesInput = document.getElementById("product_edit_pieces");
+    const productEditVolumeInput = document.getElementById("product_edit_volume");
+    const productEditWeightInput = document.getElementById("product_edit_weight");
+    const productEditImageInput = document.getElementById("product_edit_image");
+    const productEditImageFileName = document.getElementById("product-edit-image-file-name");
+    const addProductPhotoButton = document.getElementById("add-product-photo-button");
+    const productEditLabels = document.getElementById("product-edit-labels");
+    const productEditSamples = document.getElementById("product-edit-samples");
+    const productEditSampleCount = document.getElementById("product-edit-sample-count");
+    const productStatus = document.getElementById("product-status");
+    const trainingSampleCard = document.getElementById("training-sample-card");
+    const productEditorCard = document.getElementById("product-editor-card");
+    const saveProductButton = document.getElementById("save-product-button");
+    const deleteProductButton = document.getElementById("delete-product-button");
+    const dietaryLabelIcons = {{ dietary_label_icons|tojson }};
+    let currentEditingProduct = null;
+
+    function showProductStatus(message, kind) {
+      productStatus.textContent = message;
+      productStatus.className = "status " + kind;
+    }
+
+    function clearProductStatus() {
+      productStatus.textContent = "";
+      productStatus.className = "status";
+    }
+
+    function showProductEditorMode() {
+      trainingSampleCard.classList.add("is-hidden");
+      productEditorCard.classList.remove("is-hidden");
+    }
+
+    function showTrainingSampleMode() {
+      trainingSampleCard.classList.remove("is-hidden");
+      productEditorCard.classList.add("is-hidden");
+    }
+
+    function dietaryLabelIcon(label) {
+      return dietaryLabelIcons[label] || "Tag";
+    }
+
+    function createTagChip(label) {
+      const chip = document.createElement("span");
+      chip.className = "tag-chip";
+
+      const icon = document.createElement("span");
+      icon.className = "tag-chip-icon";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = dietaryLabelIcon(label);
+
+      const text = document.createElement("span");
+      text.textContent = label;
+
+      chip.appendChild(icon);
+      chip.appendChild(text);
+      return chip;
+    }
+
+    function createSelectorOptionLabel(label) {
+      const wrapper = document.createElement("span");
+      wrapper.className = "selector-option-label";
+
+      const icon = document.createElement("span");
+      icon.className = "selector-option-icon";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = dietaryLabelIcon(label);
+
+      const text = document.createElement("span");
+      text.textContent = label;
+
+      wrapper.appendChild(icon);
+      wrapper.appendChild(text);
+      return wrapper;
+    }
+
+    function renderProductEditLabels(labels = []) {
+      productEditLabels.innerHTML = "";
+      if (!labels.length) {
+        const note = document.createElement("span");
+        note.className = "muted";
+        note.textContent = "No inferred dietary labels yet.";
+        productEditLabels.appendChild(note);
+        return;
+      }
+
+      labels.forEach((label) => {
+        productEditLabels.appendChild(createTagChip(label));
+      });
+    }
+
+    function renderProductSamples(samples = []) {
+      productEditSamples.innerHTML = "";
+      const count = Array.isArray(samples) ? samples.length : 0;
+      productEditSampleCount.textContent = count === 1 ? "1 photo" : `${count} photos`;
+
+      if (!count) {
+        const emptyState = document.createElement("div");
+        emptyState.className = "sample-empty";
+        emptyState.textContent = "This product does not have saved photos yet.";
+        productEditSamples.appendChild(emptyState);
+        return;
+      }
+
+      samples.forEach((sample, index) => {
+        const tile = document.createElement("div");
+        tile.className = "sample-tile";
+
+        const link = document.createElement("a");
+        link.className = "sample-thumb";
+        link.href = sample.image_url;
+        link.target = "_blank";
+        link.rel = "noreferrer";
+        link.title = `Open photo ${index + 1}`;
+
+        const image = document.createElement("img");
+        image.className = "sample-thumb-image";
+        image.src = sample.image_url;
+        image.alt = `Training sample ${index + 1}`;
+        image.loading = "lazy";
+
+        const caption = document.createElement("span");
+        caption.className = "sample-thumb-caption";
+        caption.textContent = `#${sample.id}`;
+
+        const deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.className = "sample-delete";
+        deleteButton.title = "Delete photo";
+        deleteButton.setAttribute("aria-label", `Delete photo ${index + 1}`);
+        deleteButton.textContent = "x";
+        deleteButton.addEventListener("click", async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+
+          if (!currentEditingProduct?.id) {
+            showProductStatus("Select a product again before deleting a photo.", "error");
+            return;
+          }
+
+          const confirmed = window.confirm("Delete this photo from the product?");
+          if (!confirmed) {
+            return;
+          }
+
+          deleteButton.disabled = true;
+          try {
+            const response = await fetch(`/products/${currentEditingProduct.id}/samples/${sample.id}`, {
+              method: "DELETE"
+            });
+            const data = await response.json();
+
+              if (!response.ok || !data.ok) {
+                showProductStatus(data.error || "Failed to delete photo", "error");
+                deleteButton.disabled = false;
+                return;
+              }
+
+              currentEditingProduct.samples = (currentEditingProduct.samples || []).filter((item) => item.id !== sample.id);
+              syncCurrentProductSamples(currentEditingProduct.samples);
+              showProductStatus("Photo deleted successfully.", "success");
+            } catch (error) {
+              showProductStatus("Failed to delete photo. Check server connection.", "error");
+              deleteButton.disabled = false;
+            }
+        });
+
+        link.appendChild(image);
+        link.appendChild(caption);
+        tile.appendChild(link);
+        tile.appendChild(deleteButton);
+        productEditSamples.appendChild(tile);
+      });
+    }
+
+    function resetProductPhotoPicker() {
+      productEditImageInput.value = "";
+      updateFileName(productEditImageInput, productEditImageFileName);
+    }
+
+    function updateProductCardPhotoCount(productId, sampleCount) {
+      const counter = document.querySelector(`[data-product-photo-count="${productId}"]`);
+      if (counter) {
+        counter.textContent = String(sampleCount);
       }
     }
 
-    volumeInput.addEventListener("input", syncExclusiveFields);
-    weightInput.addEventListener("input", syncExclusiveFields);
-    imageInput.addEventListener("change", () => updateFileName(imageInput, imageFileName));
-    syncExclusiveFields();
-    updateFileName(imageInput, imageFileName);
+    function syncProductButtonDataset(product) {
+      const button = document.querySelector(`.edit-product-button[data-product-id="${product.id}"]`);
+      if (button) {
+        button.dataset.product = JSON.stringify(product);
+      }
+    }
+
+    function syncProductActionButtons() {
+      const hasSelectedProduct = Boolean(currentEditingProduct?.id);
+      deleteProductButton.disabled = !hasSelectedProduct;
+    }
+
+    function syncCurrentProductSamples(samples = []) {
+      if (!currentEditingProduct) {
+        return;
+      }
+
+      const uniqueSamples = [];
+      const seenSampleIds = new Set();
+      samples.forEach((sample) => {
+        if (!sample || seenSampleIds.has(sample.id)) {
+          return;
+        }
+        seenSampleIds.add(sample.id);
+        uniqueSamples.push(sample);
+      });
+
+      uniqueSamples.sort((left, right) => Number(right.id) - Number(left.id));
+      currentEditingProduct.samples = uniqueSamples;
+      currentEditingProduct.sample_count = uniqueSamples.length;
+      renderProductSamples(uniqueSamples);
+      updateProductCardPhotoCount(currentEditingProduct.id, uniqueSamples.length);
+      syncProductButtonDataset(currentEditingProduct);
+    }
+
+    function resetProductForm() {
+      currentEditingProduct = null;
+      productEditIdInput.value = "";
+      productEditNameInput.value = "";
+      productEditAliasesInput.value = "";
+      productEditPiecesInput.value = "1";
+      productEditVolumeInput.value = "";
+      productEditWeightInput.value = "";
+      renderProductEditLabels();
+      renderProductSamples();
+      resetProductPhotoPicker();
+      clearMeasurementValidation(productEditVolumeInput, productEditWeightInput);
+      clearProductStatus();
+      saveProductButton.textContent = "Update product";
+      syncProductActionButtons();
+      showTrainingSampleMode();
+    }
+
+    function loadProductIntoForm(product) {
+      currentEditingProduct = JSON.parse(JSON.stringify(product));
+      productEditIdInput.value = product.id || "";
+      productEditNameInput.value = product.name || "";
+      productEditAliasesInput.value = Array.isArray(product.aliases) ? product.aliases.join(", ") : "";
+      productEditPiecesInput.value = product.pieces || 1;
+      productEditVolumeInput.value = product.volume_l ?? "";
+      productEditWeightInput.value = product.weight_g ?? "";
+      renderProductEditLabels(Array.isArray(product.dietary_labels) ? product.dietary_labels : []);
+      renderProductSamples(Array.isArray(product.samples) ? product.samples : []);
+      resetProductPhotoPicker();
+      clearMeasurementValidation(productEditVolumeInput, productEditWeightInput);
+      clearProductStatus();
+      saveProductButton.textContent = "Update product";
+      syncProductActionButtons();
+      showProductEditorMode();
+    }
+
+    productEditVolumeInput.addEventListener("input", () => clearMeasurementValidation(productEditVolumeInput, productEditWeightInput));
+    productEditWeightInput.addEventListener("input", () => clearMeasurementValidation(productEditVolumeInput, productEditWeightInput));
+    productEditImageInput.addEventListener("change", () => updateFileName(productEditImageInput, productEditImageFileName));
+    document.getElementById("reset-product-button").addEventListener("click", resetProductForm);
+    deleteProductButton.addEventListener("click", async () => {
+      clearProductStatus();
+
+      if (!currentEditingProduct?.id) {
+        showProductStatus("Select a product to delete first.", "error");
+        return;
+      }
+
+      const confirmed = window.confirm(`Delete product "${currentEditingProduct.name}" and all attached photos?`);
+      if (!confirmed) {
+        return;
+      }
+
+      deleteProductButton.disabled = true;
+
+      try {
+        const response = await fetch(`/products/${currentEditingProduct.id}`, {
+          method: "DELETE"
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          showProductStatus(data.error || "Failed to delete product", "error");
+          syncProductActionButtons();
+          return;
+        }
+
+        showProductStatus("Product deleted successfully. Reloading list...", "success");
+        setTimeout(() => window.location.reload(), 450);
+      } catch (error) {
+        showProductStatus("Failed to delete product. Check server connection.", "error");
+        syncProductActionButtons();
+      }
+    });
+    addProductPhotoButton.addEventListener("click", async () => {
+      clearProductStatus();
+
+      if (!currentEditingProduct?.id) {
+        showProductStatus("Select a product before adding a photo.", "error");
+        return;
+      }
+
+      const file = productEditImageInput.files?.[0];
+      if (!file) {
+        showProductStatus("Choose a photo first.", "error");
+        return;
+      }
+
+      addProductPhotoButton.disabled = true;
+      showProductStatus("Adding photo to the product...", "success");
+
+      try {
+        const formData = new FormData();
+        formData.append("image", file);
+
+        const response = await fetch(`/products/${currentEditingProduct.id}/samples`, {
+          method: "POST",
+          body: formData
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          showProductStatus(data.error || "Failed to add photo", "error");
+          return;
+        }
+
+        if (data.sample) {
+          syncCurrentProductSamples([data.sample, ...(currentEditingProduct.samples || [])]);
+        }
+
+        resetProductPhotoPicker();
+        showProductStatus(
+          data.duplicate_sample
+            ? "This exact photo is already attached to the product, so the existing saved photo was reused."
+            : "Photo added to the product successfully.",
+          "success"
+        );
+      } catch (error) {
+        showProductStatus("Failed to add photo. Check server connection.", "error");
+      } finally {
+        addProductPhotoButton.disabled = false;
+      }
+    });
+
+    productEditForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearProductStatus();
+
+      const productId = productEditIdInput.value.trim();
+      if (!productId) {
+        showProductStatus("Select a product to edit first.", "error");
+        return;
+      }
+
+      const payload = {
+        name: productEditNameInput.value.trim(),
+        aliases: productEditAliasesInput.value.trim(),
+        pieces: productEditPiecesInput.value.trim(),
+        volume_l: productEditVolumeInput.value.trim(),
+        weight_g: productEditWeightInput.value.trim()
+      };
+
+      if (!validateMeasurementPair(productEditVolumeInput, productEditWeightInput)) {
+        showProductStatus(measurementErrorMessage, "error");
+        productEditVolumeInput.reportValidity();
+        return;
+      }
+
+      try {
+        const response = await fetch(`/products/${productId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          showProductStatus(data.error || "Failed to update product", "error");
+          return;
+        }
+
+        showProductStatus("Product updated successfully. Reloading list...", "success");
+        setTimeout(() => window.location.reload(), 700);
+      } catch (error) {
+        showProductStatus("Failed to update product. Check server connection.", "error");
+      }
+    });
+
+    document.querySelectorAll(".edit-product-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        const product = JSON.parse(button.dataset.product);
+        loadProductIntoForm(product);
+        productEditorCard.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+
+    const productsList = document.getElementById("products-list");
+    const productsFiltersPanel = document.getElementById("products-filters-panel");
+    const productSearchInput = document.getElementById("product-search");
+    const toggleProductsButton = document.getElementById("toggle-products-button");
+    const productsSummary = document.getElementById("products-summary");
+    const productTypeFilters = document.getElementById("product-type-filters");
+    const productLabelFilters = document.getElementById("product-label-filters");
+    const defaultProductLimit = 10;
+    const activeProductLabels = new Set();
+    let productsCollapsed = false;
+    let activeProductType = "all";
+
+    const productCardEntries = Array.from(document.querySelectorAll(".product-card")).map((card) => {
+      const editButton = card.querySelector(".edit-product-button");
+      if (!editButton) {
+        return null;
+      }
+
+      const product = JSON.parse(editButton.dataset.product);
+      const aliases = Array.isArray(product.aliases) ? product.aliases : [];
+      const labels = Array.isArray(product.dietary_labels) ? product.dietary_labels : [];
+      const searchableText = [
+        product.name || "",
+        aliases.join(" "),
+        labels.join(" "),
+        product.piece_based ? "piece based piece-based pieces" : "",
+        product.grams_per_piece ? "grams per piece grams/piece" : "",
+      ].join(" ").toLowerCase();
+
+      return { card, product, searchableText };
+    }).filter(Boolean);
+
+    const productTypeOptions = [
+      { id: "all", label: "All" },
+      { id: "piece-based", label: "Piece-based" },
+      { id: "has-volume", label: "Has liters" },
+      { id: "has-weight", label: "Has grams" },
+      { id: "grams-per-piece", label: "Grams / piece" },
+    ];
+
+    function matchesProductType(product, typeId) {
+      if (typeId === "all") {
+        return true;
+      }
+      if (typeId === "piece-based") {
+        return Boolean(product.piece_based);
+      }
+      if (typeId === "has-volume") {
+        return product.volume_l !== null && product.volume_l !== undefined;
+      }
+      if (typeId === "has-weight") {
+        return product.weight_g !== null && product.weight_g !== undefined;
+      }
+      if (typeId === "grams-per-piece") {
+        return product.grams_per_piece !== null && product.grams_per_piece !== undefined;
+      }
+      return true;
+    }
+
+    function renderProductTypeFilters() {
+      if (!productTypeFilters) {
+        return;
+      }
+
+      productTypeFilters.innerHTML = "";
+      productTypeOptions.forEach((option) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "filter-chip";
+        chip.textContent = option.label;
+        chip.classList.toggle("is-active", activeProductType === option.id);
+        chip.addEventListener("click", () => {
+          activeProductType = option.id;
+          renderProductTypeFilters();
+          applyProductFilters();
+        });
+        productTypeFilters.appendChild(chip);
+      });
+    }
+
+    function renderProductLabelFilters() {
+      if (!productLabelFilters) {
+        return;
+      }
+
+      const labelsInProducts = Array.from(
+        new Set(
+          productCardEntries.flatMap((entry) => Array.isArray(entry.product.dietary_labels) ? entry.product.dietary_labels : [])
+        )
+      );
+
+      productLabelFilters.innerHTML = "";
+      if (!labelsInProducts.length) {
+        const note = document.createElement("span");
+        note.className = "inline-note";
+        note.textContent = "No product badges available yet.";
+        productLabelFilters.appendChild(note);
+        return;
+      }
+
+      labelsInProducts.forEach((label) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "filter-chip";
+        chip.classList.toggle("is-active", activeProductLabels.has(label));
+        chip.appendChild(createSelectorOptionLabel(label));
+        chip.addEventListener("click", () => {
+          if (activeProductLabels.has(label)) {
+            activeProductLabels.delete(label);
+          } else {
+            activeProductLabels.add(label);
+          }
+          renderProductLabelFilters();
+          applyProductFilters();
+        });
+        productLabelFilters.appendChild(chip);
+      });
+    }
+
+    function applyProductFilters() {
+      if (!productsList || !productsSummary || !toggleProductsButton) {
+        return;
+      }
+
+      const query = (productSearchInput?.value || "").trim().toLowerCase();
+      const hasNarrowing = query !== "" || activeProductType !== "all" || activeProductLabels.size > 0;
+
+      const matchingEntries = productCardEntries.filter((entry) => {
+        const product = entry.product;
+        const matchesQuery = !query || entry.searchableText.includes(query);
+        const matchesType = matchesProductType(product, activeProductType);
+        const labels = Array.isArray(product.dietary_labels) ? product.dietary_labels : [];
+        const matchesLabels = Array.from(activeProductLabels).every((label) => labels.includes(label));
+        return matchesQuery && matchesType && matchesLabels;
+      });
+
+      const visibleLimit = hasNarrowing ? matchingEntries.length : defaultProductLimit;
+      const visibleIds = new Set(matchingEntries.slice(0, visibleLimit).map((entry) => entry.product.id));
+
+      productCardEntries.forEach((entry) => {
+        const shouldShow = !productsCollapsed && visibleIds.has(entry.product.id);
+        entry.card.classList.toggle("is-hidden", !shouldShow);
+      });
+
+      if (productsFiltersPanel) {
+        productsFiltersPanel.classList.toggle("is-hidden", productsCollapsed);
+      }
+
+      toggleProductsButton.textContent = productsCollapsed ? "Show products" : "Hide products";
+
+      if (productsCollapsed) {
+        productsSummary.textContent = hasNarrowing
+          ? `Products hidden. ${matchingEntries.length} match current filters.`
+          : `Products hidden. ${productCardEntries.length} available in total.`;
+        return;
+      }
+
+      if (!matchingEntries.length) {
+        productsSummary.textContent = "No products match the current search or filters.";
+        return;
+      }
+
+      if (!hasNarrowing && matchingEntries.length > defaultProductLimit) {
+        productsSummary.textContent = `Showing ${defaultProductLimit} of ${matchingEntries.length} products`;
+        return;
+      }
+
+      if (hasNarrowing) {
+        productsSummary.textContent = `Showing all ${matchingEntries.length} matching products`;
+        return;
+      }
+
+      productsSummary.textContent = `Showing ${matchingEntries.length} products`;
+    }
+
+    if (productSearchInput) {
+      productSearchInput.addEventListener("input", applyProductFilters);
+    }
+
+    if (toggleProductsButton) {
+      toggleProductsButton.addEventListener("click", () => {
+        productsCollapsed = !productsCollapsed;
+        applyProductFilters();
+      });
+    }
+
+    renderProductTypeFilters();
+    renderProductLabelFilters();
+    applyProductFilters();
+
+    resetProductForm();
 
     const recipeForm = document.getElementById("recipe-form");
     const recipeIdInput = document.getElementById("recipe_id");
     const recipeTitleInput = document.getElementById("recipe_title");
     const recipeServingsInput = document.getElementById("recipe_servings");
     const recipeStepsInput = document.getElementById("recipe_steps");
+    const recipeSourceModeInput = document.getElementById("recipe_source_mode");
+    const recipeSourceTextInput = document.getElementById("recipe_source_text");
+    const recipeAutoPanel = document.getElementById("recipe-auto-panel");
+    const recipeAutoSummary = document.getElementById("recipe-auto-summary");
+    const generateRecipeIngredientsButton = document.getElementById("generate-recipe-ingredients-button");
+    const recipeModeButtons = Array.from(document.querySelectorAll("#recipe-mode-toggle .toggle-button"));
+    const recipeLabelSelector = document.getElementById("recipe-label-selector");
     const ingredientsList = document.getElementById("ingredients-list");
     const recipeStatus = document.getElementById("recipe-status");
     const recipeEditorCard = document.getElementById("recipe-editor-card");
     const saveRecipeButton = document.getElementById("save-recipe-button");
+    const dietaryLabelOptions = {{ dietary_labels|tojson }};
 
     function showRecipeStatus(message, kind) {
       recipeStatus.textContent = message;
@@ -425,6 +1395,50 @@
     function clearRecipeStatus() {
       recipeStatus.textContent = "";
       recipeStatus.className = "status";
+    }
+
+    function setRecipeAutoSummary(message) {
+      recipeAutoSummary.textContent = message;
+    }
+
+    function setRecipeMode(mode) {
+      const normalizedMode = mode === "auto" ? "auto" : "manual";
+      recipeSourceModeInput.value = normalizedMode;
+      recipeModeButtons.forEach((button) => {
+        button.classList.toggle("is-active", button.dataset.mode === normalizedMode);
+      });
+      recipeAutoPanel.classList.toggle("hidden-panel", normalizedMode !== "auto");
+
+      if (normalizedMode === "auto") {
+        if (!recipeSourceTextInput.value.trim()) {
+          setRecipeAutoSummary("Paste a recipe text and generate ingredients automatically.");
+        } else if (!ingredientsList.children.length) {
+          setRecipeAutoSummary("Source text loaded. Generate ingredients when you are ready.");
+        }
+      } else {
+        setRecipeAutoSummary("Manual ingredient mode is active.");
+      }
+    }
+
+    function renderRecipeLabelSelector(selectedLabels = []) {
+      const selected = new Set(selectedLabels);
+      recipeLabelSelector.innerHTML = "";
+      dietaryLabelOptions.forEach((label) => {
+        const option = document.createElement("label");
+        option.className = "selector-option";
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.name = "dietary-label";
+        input.value = label;
+        input.checked = selected.has(label);
+        option.appendChild(input);
+        option.appendChild(createSelectorOptionLabel(label));
+        recipeLabelSelector.appendChild(option);
+      });
+    }
+
+    function collectSelectedRecipeLabels() {
+      return Array.from(recipeLabelSelector.querySelectorAll('input[name="dietary-label"]:checked')).map((input) => input.value);
     }
 
     function createInputField(labelText, className, type, value, placeholder) {
@@ -472,7 +1486,9 @@
       const removeButton = document.createElement("button");
       removeButton.type = "button";
       removeButton.className = "danger remove-ingredient-button";
-      removeButton.textContent = "Remove";
+      removeButton.title = "Remove ingredient";
+      removeButton.setAttribute("aria-label", "Remove ingredient");
+      removeButton.textContent = "×";
       removeButton.addEventListener("click", () => {
         row.remove();
         if (!ingredientsList.children.length) {
@@ -492,13 +1508,24 @@
       ingredientsList.appendChild(createIngredientRow(ingredient));
     }
 
+    function replaceIngredientRows(ingredients = []) {
+      ingredientsList.innerHTML = "";
+      if (Array.isArray(ingredients) && ingredients.length) {
+        ingredients.forEach((ingredient) => addIngredientRow(ingredient));
+        return;
+      }
+      addIngredientRow();
+    }
+
     function resetRecipeForm() {
       recipeIdInput.value = "";
       recipeTitleInput.value = "";
       recipeServingsInput.value = "1";
       recipeStepsInput.value = "";
-      ingredientsList.innerHTML = "";
-      addIngredientRow();
+      recipeSourceTextInput.value = "";
+      renderRecipeLabelSelector();
+      replaceIngredientRows();
+      setRecipeMode("manual");
       clearRecipeStatus();
       saveRecipeButton.textContent = "Save recipe";
     }
@@ -518,12 +1545,61 @@
         titlePl: recipeTitleInput.value.trim(),
         stepsPl: recipeStepsInput.value.trim(),
         servings: Number(recipeServingsInput.value),
-        ingredients
+        dietaryLabels: collectSelectedRecipeLabels(),
+        ingredients,
+        sourceMode: recipeSourceModeInput.value,
+        sourceText: recipeSourceModeInput.value === "auto" ? recipeSourceTextInput.value.trim() : ""
       };
     }
 
     document.getElementById("add-ingredient-button").addEventListener("click", () => addIngredientRow());
     document.getElementById("reset-recipe-button").addEventListener("click", resetRecipeForm);
+    recipeModeButtons.forEach((button) => {
+      button.addEventListener("click", () => setRecipeMode(button.dataset.mode));
+    });
+
+    generateRecipeIngredientsButton.addEventListener("click", async () => {
+      clearRecipeStatus();
+
+      const sourceText = recipeSourceTextInput.value.trim();
+      if (!sourceText) {
+        showRecipeStatus("Paste recipe text first, then generate ingredients.", "error");
+        recipeSourceTextInput.focus();
+        return;
+      }
+
+      generateRecipeIngredientsButton.disabled = true;
+      setRecipeAutoSummary("Generating ingredient rows from your text...");
+
+      try {
+        const response = await fetch("/recipes/parse-ingredients", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sourceText })
+        });
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          showRecipeStatus(data.error || "Failed to generate ingredients", "error");
+          setRecipeAutoSummary("Automatic parsing failed. You can still edit ingredients manually.");
+          return;
+        }
+
+        replaceIngredientRows(data.ingredients || []);
+        setRecipeMode("auto");
+        setRecipeAutoSummary(
+          data.detected_count
+            ? `Generated ${data.detected_count} ingredient row${data.detected_count === 1 ? "" : "s"} from the source text.`
+            : "No clear ingredients were detected. You can add them manually below."
+        );
+        showRecipeStatus("Ingredients generated from the source text.", "success");
+      } catch (error) {
+        showRecipeStatus("Failed to generate ingredients. Check server connection.", "error");
+        setRecipeAutoSummary("Automatic parsing failed. You can still edit ingredients manually.");
+      } finally {
+        generateRecipeIngredientsButton.disabled = false;
+      }
+    });
 
     recipeForm.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -561,13 +1637,15 @@
         recipeTitleInput.value = recipe.title_pl || "";
         recipeServingsInput.value = recipe.servings || 1;
         recipeStepsInput.value = recipe.steps_pl || "";
-        ingredientsList.innerHTML = "";
-
-        if (Array.isArray(recipe.ingredients) && recipe.ingredients.length) {
-          recipe.ingredients.forEach((ingredient) => addIngredientRow(ingredient));
-        } else {
-          addIngredientRow();
-        }
+        recipeSourceTextInput.value = recipe.source_text || "";
+        renderRecipeLabelSelector(Array.isArray(recipe.dietary_labels) ? recipe.dietary_labels : []);
+        replaceIngredientRows(Array.isArray(recipe.ingredients) ? recipe.ingredients : []);
+        setRecipeMode(recipe.source_mode || "manual");
+        setRecipeAutoSummary(
+          (recipe.source_mode || "manual") === "auto"
+            ? "Loaded saved auto-recipe text. You can regenerate ingredients or edit them manually."
+            : "Manual ingredient mode is active."
+        );
 
         clearRecipeStatus();
         saveRecipeButton.textContent = "Update recipe";

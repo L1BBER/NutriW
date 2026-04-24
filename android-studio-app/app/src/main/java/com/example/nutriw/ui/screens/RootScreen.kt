@@ -47,6 +47,7 @@ import com.example.nutriw.data.api.RecipeItem
 import com.example.nutriw.vm.ScanFlow
 import com.example.nutriw.vm.ScanViewModel
 import com.example.nutriw.vm.ServerConnectionStatus
+import com.example.nutriw.vm.recipeDietaryFilterOptions
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -204,7 +205,7 @@ private fun ProductsScreen(vm: ScanViewModel, pad: PaddingValues) {
                 Card(shape = RoundedCornerShape(26.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f))) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                            Column { Text("Detected product ${index + 1}", style = MaterialTheme.typography.titleMedium); product.brand?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) } }
+                            Column { Text("Detected product ${index + 1}", style = MaterialTheme.typography.titleMedium) }
                             product.confidence?.let { AssistChip(onClick = {}, enabled = false, label = { Text("${(it * 100).toInt()}% confidence") }, leadingIcon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) }, colors = AssistChipDefaults.assistChipColors(disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), disabledLabelColor = MaterialTheme.colorScheme.primary, disabledLeadingIconContentColor = MaterialTheme.colorScheme.primary)) }
                         }
                         OutlinedTextField(value = product.name, onValueChange = { vm.updateProductName(index, it) }, label = { Text("Product name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -243,15 +244,53 @@ private fun ProductsScreen(vm: ScanViewModel, pad: PaddingValues) {
 
 @Composable
 private fun RecipesScreen(vm: ScanViewModel, pad: PaddingValues) {
+    val filteredRecipes = vm.filteredRecipes
     Column(Modifier.fillMaxSize().padding(pad).padding(horizontal = 16.dp, vertical = 12.dp)) {
         LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(bottom = 20.dp)) {
             item { HeroCard("Recipes", "These recipes are based on the products you confirmed in the previous step.") }
-            if (vm.recipes.isEmpty()) item { WarningCard("No recipes are available yet. Confirm products first or add more recipes in the admin panel.") }
-            items(vm.recipes) { RecipeCard(it) }
+            item { RecipeFiltersCard(vm) }
+            if (vm.recipes.isEmpty()) {
+                item { WarningCard("No recipes are available yet. Confirm products first or add more recipes in the admin panel.") }
+            } else if (filteredRecipes.isEmpty()) {
+                item { WarningCard("No recipes match the selected dietary filters. Clear one or more filters and try again.") }
+            } else {
+                items(filteredRecipes) { RecipeCard(it) }
+            }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutlinedButton(onClick = { vm.openProducts() }, enabled = vm.editableProducts.isNotEmpty(), modifier = Modifier.weight(1f)) { Text("Back") }
             Button(onClick = { vm.scanAgain() }, modifier = Modifier.weight(1f)) { Icon(Icons.Default.CameraAlt, contentDescription = null); Spacer(Modifier.width(8.dp)); Text("New Scan") }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RecipeFiltersCard(vm: ScanViewModel) {
+    Card(shape = RoundedCornerShape(26.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f))) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Dietary filters", style = MaterialTheme.typography.titleMedium)
+                    Text("Choose one or more labels to narrow the recipe list.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (vm.selectedRecipeFilters.isNotEmpty()) {
+                    TextButton(onClick = { vm.clearRecipeFilters() }) { Text("Clear") }
+                }
+            }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                recipeDietaryFilterOptions.forEach { label ->
+                    FilterChip(
+                        selected = label in vm.selectedRecipeFilters,
+                        onClick = { vm.toggleRecipeFilter(label) },
+                        label = { Text(label) },
+                        leadingIcon = { Text(dietaryLabelIcon(label)) }
+                    )
+                }
+            }
         }
     }
 }
@@ -316,6 +355,23 @@ private fun RecipeCard(recipe: RecipeItem) {
                 Column(Modifier.weight(1f)) { Text(recipe.titlePl, style = MaterialTheme.typography.titleLarge); recipe.servings?.let { Text("$it servings", color = MaterialTheme.colorScheme.onSurfaceVariant) } }
                 Icon(Icons.Default.RestaurantMenu, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             }
+            if (recipe.dietaryLabels.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(recipe.dietaryLabels) { label ->
+                        AssistChip(
+                            onClick = {},
+                            enabled = false,
+                            label = { Text(label) },
+                            leadingIcon = { Text(dietaryLabelIcon(label)) },
+                            colors = AssistChipDefaults.assistChipColors(
+                                disabledContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                disabledLabelColor = MaterialTheme.colorScheme.primary,
+                                disabledLeadingIconContentColor = MaterialTheme.colorScheme.primary
+                            )
+                        )
+                    }
+                }
+            }
             recipe.coverage?.let { coverage ->
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Match ${(coverage * 100).toInt()}%", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -377,9 +433,23 @@ private fun cameraStatus(status: ServerConnectionStatus): String = when (status)
     ServerConnectionStatus.OFFLINE -> "Server offline"
 }
 
+private fun dietaryLabelIcon(label: String): String = when (label) {
+    "Gluten-Free" -> "\uD83C\uDF3E"
+    "Lactose-Free" -> "\uD83E\uDD5B"
+    "Dairy-Free" -> "\uD83E\uDD65"
+    "High-Protein" -> "\uD83D\uDCAA"
+    "Low Sugar" -> "\uD83D\uDCC9"
+    "Sugar-Free" -> "\u26D4"
+    "Vegan" -> "\uD83C\uDF31"
+    "Vegetarian" -> "\uD83E\uDD55"
+    "Organic" -> "\uD83C\uDF43"
+    "Keto-Friendly" -> "\uD83E\uDD51"
+    "UHT" -> "\uD83D\uDD25"
+    else -> "\uD83C\uDFF7\uFE0F"
+}
+
 private fun candidateLabel(candidate: ProductCandidate): String = buildString {
     append(candidate.name)
-    candidate.brand?.takeIf { it.isNotBlank() }?.let { append(" - "); append(it) }
 }
 
 private fun candidateMeasurementLabel(candidate: ProductCandidate): String? = when {

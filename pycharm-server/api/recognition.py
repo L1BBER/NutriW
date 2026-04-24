@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import re
-import unicodedata
 from difflib import SequenceMatcher
 from typing import Any, Dict, Iterable, List, Optional
 
 import numpy as np
 
 from .ocr import OcrResult
+from .text_utils import normalize_text
 from .vision import cosine_similarity
 
 TOKEN_RE = re.compile(r"[a-z0-9]+")
@@ -31,14 +31,6 @@ STOPWORDS = {
     "super",
     "extra",
 }
-
-
-def normalize_text(value: str) -> str:
-    normalized = unicodedata.normalize("NFKD", value or "")
-    ascii_value = normalized.encode("ascii", "ignore").decode("ascii")
-    return re.sub(r"\s+", " ", ascii_value).strip().casefold()
-
-
 def tokenize(value: str) -> List[str]:
     tokens = TOKEN_RE.findall(normalize_text(value))
     return [token for token in tokens if len(token) > 1 and token not in STOPWORDS]
@@ -112,8 +104,7 @@ def _measurement_similarity(expected: float, actual: float) -> float:
 
 def _product_terms(product: Dict[str, Any]) -> List[str]:
     aliases = product.get("aliases") or []
-    brand = product.get("brand")
-    return [str(product.get("name", "")), *(str(alias) for alias in aliases), str(brand or "")]
+    return [str(product.get("name", "")), *(str(alias) for alias in aliases)]
 
 
 def _score_text(product: Dict[str, Any], ocr_result: OcrResult) -> float:
@@ -237,8 +228,8 @@ def rank_catalog(
             {
                 "id": product["id"],
                 "name": product["name"],
-                "brand": product.get("brand"),
                 "aliases": list(product.get("aliases") or []),
+                "dietary_labels": list(product.get("dietary_labels") or []),
                 "pieces": int(product.get("pieces") or 1),
                 "volume_l": product.get("volume_l"),
                 "weight_g": product.get("weight_g"),

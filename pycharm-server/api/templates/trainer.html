@@ -6,14 +6,15 @@
   <title>NutriW Trainer</title>
   <style>
     :root {
-      --ink: #102028;
-      --muted: #55626e;
-      --line: rgba(16, 32, 40, 0.12);
-      --accent: #0d7a5f;
-      --accent-soft: rgba(13, 122, 95, 0.1);
-      --card: rgba(255, 252, 247, 0.94);
-      --danger: #a43131;
-      --shadow: 0 18px 40px rgba(15, 26, 35, 0.12);
+      --bg: #f7f3eb;
+      --card: #fffdf8;
+      --ink: #1f2933;
+      --muted: #5b6674;
+      --line: #d8d1c5;
+      --accent: #1b6b4b;
+      --accent-soft: #e8f3ee;
+      --danger: #9f2d2d;
+      --shadow: 0 12px 30px rgba(31, 41, 51, 0.08);
     }
 
     * { box-sizing: border-box; }
@@ -23,22 +24,21 @@
       font-family: "Trebuchet MS", "Segoe UI", sans-serif;
       color: var(--ink);
       background:
-        radial-gradient(circle at top right, rgba(255, 214, 153, 0.58), transparent 30%),
-        radial-gradient(circle at bottom left, rgba(148, 209, 188, 0.45), transparent 30%),
-        linear-gradient(180deg, #fffaf2 0%, #f2f6f3 100%);
+        radial-gradient(circle at top left, rgba(238, 220, 178, 0.75), transparent 32%),
+        linear-gradient(180deg, #fffaf3 0%, var(--bg) 100%);
     }
-    main { max-width: 980px; margin: 0 auto; padding: 22px 16px 40px; }
+    main { max-width: 1040px; margin: 0 auto; padding: 28px 18px 48px; }
     h1, h2, h3 { margin: 0; }
     p { margin: 0; }
     a { color: var(--accent); }
     .hero {
-      padding: 26px;
+      padding: 28px;
       border-radius: 28px;
-      background: linear-gradient(140deg, rgba(255, 255, 255, 0.95), rgba(245, 252, 248, 0.95));
-      border: 1px solid rgba(13, 122, 95, 0.14);
+      background: linear-gradient(135deg, rgba(255, 250, 240, 0.96), rgba(238, 247, 240, 0.96));
+      border: 1px solid rgba(27, 107, 75, 0.12);
       box-shadow: var(--shadow);
       display: grid;
-      gap: 16px;
+      gap: 18px;
     }
     .hero-top {
       display: flex;
@@ -55,7 +55,7 @@
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 9px 14px;
+      padding: 10px 14px;
       border-radius: 999px;
       background: var(--accent-soft);
       color: var(--accent);
@@ -68,22 +68,27 @@
       display: grid;
       grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
       gap: 18px;
+      align-items: start;
     }
-    .stack { display: grid; gap: 18px; }
+    .stack {
+      display: grid;
+      gap: 18px;
+      align-content: start;
+    }
     .card {
       background: var(--card);
-      border: 1px solid var(--line);
+      border: 1px solid rgba(31, 41, 51, 0.08);
       border-radius: 24px;
-      padding: 18px;
+      padding: 20px;
       box-shadow: var(--shadow);
       display: grid;
       gap: 14px;
-      backdrop-filter: blur(10px);
+      align-content: start;
     }
     .preview-shell {
       border-radius: 22px;
-      border: 1px dashed rgba(13, 122, 95, 0.25);
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(242, 249, 245, 0.9));
+      border: 1px dashed rgba(27, 107, 75, 0.2);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(249, 245, 236, 0.92));
       min-height: 280px;
       display: grid;
       place-items: center;
@@ -103,19 +108,19 @@
       max-width: 320px;
       line-height: 1.4;
     }
-    .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-    .field { display: grid; gap: 6px; }
+    .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+    .field { display: grid; gap: 6px; align-content: start; }
     label { font-weight: 700; font-size: 0.92rem; }
     input, textarea {
       width: 100%;
       border-radius: 16px;
-      border: 1px solid rgba(16, 32, 40, 0.14);
-      background: rgba(255, 255, 255, 0.95);
-      padding: 12px 13px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 11px 12px;
       color: var(--ink);
       font: inherit;
     }
-    input:disabled { background: rgba(236, 241, 238, 0.95); color: #71808b; }
+    input:disabled { background: #f2efe8; color: #7a8390; }
     textarea { min-height: 120px; resize: vertical; }
     .file-picker {
       position: relative;
@@ -130,10 +135,10 @@
       z-index: 2;
     }
     .file-picker-shell {
-      min-height: 56px;
-      border-radius: 18px;
-      border: 1px solid rgba(16, 32, 40, 0.14);
-      background: rgba(255, 255, 255, 0.95);
+      min-height: 52px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: #fff;
       display: flex;
       align-items: center;
       gap: 12px;
@@ -144,9 +149,8 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 126px;
-      padding: 11px 14px;
-      border-radius: 14px;
+      padding: 10px 14px;
+      border-radius: 12px;
       background: var(--ink);
       color: #fff;
       font-weight: 700;
@@ -159,35 +163,36 @@
       text-overflow: ellipsis;
     }
     .file-picker input[type="file"]:focus + .file-picker-shell {
-      outline: 2px solid rgba(13, 122, 95, 0.2);
+      outline: 2px solid rgba(27, 107, 75, 0.18);
       outline-offset: 2px;
     }
     button {
-      padding: 12px 16px;
+      padding: 10px 16px;
       border: 0;
-      border-radius: 16px;
+      border-radius: 14px;
       background: var(--ink);
       color: #fff;
       font: inherit;
       font-weight: 700;
       cursor: pointer;
     }
-    button.secondary { background: #ecf1ee; color: var(--ink); }
+    button.secondary { background: #e9ecef; color: var(--ink); }
     button.ghost {
       background: transparent;
       color: var(--accent);
-      border: 1px solid rgba(13, 122, 95, 0.22);
+      border: 1px solid rgba(27, 107, 75, 0.22);
     }
     button:disabled { opacity: 0.6; cursor: wait; }
     .actions { display: flex; gap: 10px; flex-wrap: wrap; }
-    .status { display: none; padding: 11px 13px; border-radius: 16px; }
-    .status.success { display: block; background: #eef9f1; color: #145f3f; border: 1px solid #c2e5ca; }
-    .status.error { display: block; background: #fff1f1; color: #8a2424; border: 1px solid #efc7c7; }
-    .status.info { display: block; background: #eef6ff; color: #1f4c74; border: 1px solid #cfe1f5; }
+    .status { display: none; padding: 10px 12px; border-radius: 14px; }
+    .status.success { display: block; background: #edf8f1; color: #155938; border: 1px solid #bee0c7; }
+    .status.error { display: block; background: #fdf0f0; color: #8b2222; border: 1px solid #efc6c6; }
+    .status.info { display: block; background: #eef6ff; color: #244b72; border: 1px solid #d2e0ef; }
     .prediction-hero {
       border-radius: 20px;
       padding: 16px;
-      background: linear-gradient(140deg, rgba(13, 122, 95, 0.1), rgba(255, 255, 255, 0.7));
+      background: linear-gradient(140deg, rgba(232, 243, 238, 0.96), rgba(255, 253, 248, 0.92));
+      border: 1px solid rgba(27, 107, 75, 0.1);
       display: grid;
       gap: 8px;
     }
@@ -198,7 +203,7 @@
       text-align: left;
       background: #fff;
       color: var(--ink);
-      border: 1px solid rgba(16, 32, 40, 0.08);
+      border: 1px solid rgba(31, 41, 51, 0.08);
       border-radius: 18px;
       padding: 12px 14px;
     }
@@ -206,8 +211,8 @@
     .candidate-meta { margin-top: 4px; color: var(--muted); font-size: 0.84rem; }
     .ocr-box {
       border-radius: 20px;
-      border: 1px solid rgba(16, 32, 40, 0.08);
-      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(31, 41, 51, 0.08);
+      background: rgba(255, 255, 255, 0.88);
       padding: 14px;
       display: grid;
       gap: 10px;
@@ -218,7 +223,7 @@
       word-break: break-word;
       font-family: Consolas, "Courier New", monospace;
       font-size: 0.82rem;
-      color: #31414d;
+      color: #3d4a56;
     }
     .hidden { display: none !important; }
     .field-help { font-size: 0.84rem; color: var(--muted); }
@@ -288,21 +293,15 @@
             <input id="trainer-token" type="hidden" />
             <input id="original-filename" type="hidden" />
 
-            <div class="field-grid">
-              <div class="field">
-                <label for="product-name">Product name</label>
-                <input id="product-name" type="text" placeholder="e.g. Lactose-free milk 3.2%" required />
-              </div>
-              <div class="field">
-                <label for="product-brand">Brand</label>
-                <input id="product-brand" type="text" placeholder="e.g. Dairy Valley" />
-              </div>
+            <div class="field">
+              <label for="product-name">Product name</label>
+              <input id="product-name" type="text" placeholder="e.g. Lactose-free milk 3.2%" required />
             </div>
 
             <div class="field">
               <label for="product-aliases">Aliases</label>
               <input id="product-aliases" type="text" placeholder="e.g. lactose free milk, milk 3.2" />
-              <div class="field-help">Aliases are optional, but very useful when OCR reads partial or noisy label text.</div>
+              <div class="field-help">Aliases are optional, but very useful when OCR reads partial or noisy label text. They also auto-map labels such as Gluten-Free, Lactose-Free, Vegan, UHT, Wolny wybieg, and Naturalny.</div>
             </div>
 
             <div class="field-grid">
@@ -312,14 +311,14 @@
               </div>
               <div class="field">
                 <label for="product-volume">Volume in liters</label>
-                <input id="product-volume" type="number" min="0.001" step="0.001" placeholder="e.g. 1.0" />
+                <input id="product-volume" type="number" min="0" step="0.001" placeholder="e.g. 1.0 or 0 if not used" />
               </div>
             </div>
 
             <div class="field-grid">
               <div class="field">
                 <label for="product-weight">Weight in grams</label>
-                <input id="product-weight" type="number" min="0.1" step="0.1" placeholder="e.g. 1000" />
+                <input id="product-weight" type="number" min="0" step="0.1" placeholder="e.g. 1000 or 0 if not used" />
               </div>
               <div class="field">
                 <label>Save action</label>
@@ -327,7 +326,7 @@
               </div>
             </div>
 
-            <div class="field-help">Liters and grams are mutually exclusive. Pieces are always required.</div>
+            <div class="field-help">Liters and grams are optional for piece-based products such as apples, tomatoes, eggs, or garlic. Use 0 for any field you do not want to save. If both pieces and grams are set, grams per piece are calculated automatically.</div>
 
             <div class="actions" style="margin-top: 12px;">
               <button id="save-training-button" type="submit">Save training sample</button>
@@ -382,12 +381,12 @@
     const tokenInput = document.getElementById("trainer-token");
     const originalFilenameInput = document.getElementById("original-filename");
     const productNameInput = document.getElementById("product-name");
-    const productBrandInput = document.getElementById("product-brand");
     const productAliasesInput = document.getElementById("product-aliases");
     const productPiecesInput = document.getElementById("product-pieces");
     const productVolumeInput = document.getElementById("product-volume");
     const productWeightInput = document.getElementById("product-weight");
     const useTopCandidateButton = document.getElementById("use-top-candidate-button");
+    const measurementErrorMessage = "Use positive numbers, or leave the field empty / 0 if it is not used.";
 
     let currentPreviewUrl = null;
     let latestPrediction = null;
@@ -423,34 +422,38 @@
       photoFileName.textContent = file.name || "Photo selected";
     }
 
-    function syncExclusiveFields() {
-      const hasVolume = productVolumeInput.value.trim() !== "";
-      const hasWeight = productWeightInput.value.trim() !== "";
-
-      if (hasVolume) {
-        productWeightInput.value = "";
-        productWeightInput.disabled = true;
-      } else {
-        productWeightInput.disabled = false;
+    function parseMeasurementValue(input) {
+      const rawValue = input.value.trim().replace(",", ".");
+      if (!rawValue) {
+        return null;
       }
 
-      if (hasWeight) {
-        productVolumeInput.value = "";
-        productVolumeInput.disabled = true;
-      } else {
-        productVolumeInput.disabled = false;
+      const parsedValue = Number(rawValue);
+      if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+        return null;
       }
+
+      return parsedValue;
+    }
+
+    function clearMeasurementValidation() {
+      productVolumeInput.setCustomValidity("");
+      productWeightInput.setCustomValidity("");
+    }
+
+    function validateMeasurements() {
+      clearMeasurementValidation();
+      return true;
     }
 
     function fillFormFromCandidate(candidate) {
       latestPrediction = candidate || null;
       productNameInput.value = candidate?.name || "";
-      productBrandInput.value = candidate?.brand || "";
       productAliasesInput.value = Array.isArray(candidate?.aliases) ? candidate.aliases.join(", ") : "";
       productPiecesInput.value = candidate?.pieces || 1;
       productVolumeInput.value = candidate?.volume_l ?? "";
       productWeightInput.value = candidate?.weight_g ?? "";
-      syncExclusiveFields();
+      clearMeasurementValidation();
     }
 
     function renderPrediction(prediction) {
@@ -466,7 +469,7 @@
       predictionHero.innerHTML = `
         <div class="muted">Top guess</div>
         <div class="score">${score}%</div>
-        <div><strong>${prediction.name}</strong>${prediction.brand ? ` | ${prediction.brand}` : ""}</div>
+        <div><strong>${prediction.name}</strong></div>
         <div class="muted">
           image ${Math.round((prediction.image_score || 0) * 100)}% |
           text ${Math.round((prediction.text_score || 0) * 100)}% |
@@ -482,7 +485,7 @@
         button.type = "button";
         button.className = "candidate-button";
         button.innerHTML = `
-          <strong>${index + 1}. ${candidate.name}${candidate.brand ? ` | ${candidate.brand}` : ""}</strong>
+          <strong>${index + 1}. ${candidate.name}</strong>
           <div class="candidate-meta">
             confidence ${Math.round((candidate.confidence || 0) * 100)}% |
             ${candidate.sample_count || 0} samples
@@ -511,8 +514,8 @@
       if (ocr.net) parts.push(`net: ${ocr.net}`);
       if (ocr.fat_percent !== null && ocr.fat_percent !== undefined) parts.push(`fat: ${ocr.fat_percent}%`);
       if (ocr.confidence !== null && ocr.confidence !== undefined) parts.push(`ocr confidence: ${Math.round(ocr.confidence * 100)}%`);
-      ocrSummary.textContent = parts.length ? parts.join(" | ") : "OCR found no strong structured fields.";
-      ocrText.textContent = ocr.text || "OCR did not return readable text for this image.";
+      ocrSummary.textContent = ocr.warning || (parts.length ? parts.join(" | ") : "OCR found no strong structured fields.");
+      ocrText.textContent = ocr.text || ocr.warning || "OCR did not return readable text for this image.";
     }
 
     function resetTrainer(options = {}) {
@@ -539,8 +542,8 @@
       updatePreview(photoInput.files?.[0] || null);
     });
 
-    productVolumeInput.addEventListener("input", syncExclusiveFields);
-    productWeightInput.addEventListener("input", syncExclusiveFields);
+    productVolumeInput.addEventListener("input", clearMeasurementValidation);
+    productWeightInput.addEventListener("input", clearMeasurementValidation);
 
     analyzeButton.addEventListener("click", async () => {
       const file = photoInput.files?.[0];
@@ -604,7 +607,6 @@
         token: tokenInput.value.trim(),
         original_filename: originalFilenameInput.value.trim(),
         name: productNameInput.value.trim(),
-        brand: productBrandInput.value.trim(),
         aliases: productAliasesInput.value.trim(),
         pieces: productPiecesInput.value.trim(),
         volume_l: productVolumeInput.value.trim(),
@@ -613,6 +615,12 @@
 
       if (!payload.token) {
         showStatus("Analyze a photo first.", "error");
+        return;
+      }
+
+      if (!validateMeasurements()) {
+        showStatus(measurementErrorMessage, "error");
+        productVolumeInput.reportValidity();
         return;
       }
 
@@ -633,12 +641,15 @@
           return;
         }
 
-        showStatus(
-          data.was_correct
-            ? `Saved sample for ${data.saved_name}. The AI guess was correct.`
-            : `Saved corrected sample for ${data.saved_name}. The AI feedback was recorded.`,
-          "success"
-        );
+        let successMessage = data.was_correct
+          ? `Saved sample for ${data.saved_name}. The AI guess was correct.`
+          : `Saved corrected sample for ${data.saved_name}. The AI feedback was recorded.`;
+
+        if (data.duplicate_sample) {
+          successMessage += " Exact duplicate photo detected, so the existing saved image was reused.";
+        }
+
+        showStatus(successMessage, "success");
         resetTrainer({ preserveStatus: true });
       } catch (error) {
         showStatus("Failed to save the sample. Check the server connection.", "error");
@@ -648,7 +659,6 @@
     });
 
     resetButton.addEventListener("click", resetTrainer);
-    syncExclusiveFields();
     resetTrainer();
   </script>
 </body>

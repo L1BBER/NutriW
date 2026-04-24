@@ -32,7 +32,6 @@ enum class ScanFlow {
 data class EditableProduct(
     val name: String,
     val amount: String,
-    val brand: String? = null,
     val confidence: Double? = null,
     val candidates: List<ProductCandidate> = emptyList(),
     val ocrText: String = ""
@@ -48,6 +47,19 @@ data class ServerUiState(
     val status: ServerConnectionStatus = ServerConnectionStatus.SEARCHING,
     val message: String = "Searching for server...",
     val baseUrl: String? = null
+)
+
+val recipeDietaryFilterOptions = listOf(
+    "Gluten-Free",
+    "Lactose-Free",
+    "Dairy-Free",
+    "High-Protein",
+    "Low Sugar",
+    "Sugar-Free",
+    "Vegan",
+    "Vegetarian",
+    "Organic",
+    "Keto-Friendly"
 )
 
 sealed class ScanUiState {
@@ -84,6 +96,9 @@ class ScanViewModel(
     var recipes: List<RecipeItem> by mutableStateOf(emptyList())
         private set
 
+    var selectedRecipeFilters: Set<String> by mutableStateOf(emptySet())
+        private set
+
     var lastScanResponse: ScanResponse? by mutableStateOf(null)
         private set
 
@@ -103,6 +118,13 @@ class ScanViewModel(
 
     val canOpenRecipes: Boolean
         get() = recipes.isNotEmpty() || flow == ScanFlow.RECIPES
+
+    val filteredRecipes: List<RecipeItem>
+        get() = if (selectedRecipeFilters.isEmpty()) {
+            recipes
+        } else {
+            recipes.filter { recipe -> selectedRecipeFilters.all { filter -> filter in recipe.dietaryLabels } }
+        }
 
     init {
         refreshServer()
@@ -151,13 +173,13 @@ class ScanViewModel(
                     EditableProduct(
                         name = it.name,
                         amount = it.amount ?: it.fields?.net.orEmpty(),
-                        brand = it.brand,
                         confidence = it.confidence,
                         candidates = it.candidates,
                         ocrText = it.fields?.ocrText.orEmpty()
                     )
                 }
                 recipes = res.recipes
+                selectedRecipeFilters = emptySet()
                 flow = ScanFlow.PRODUCTS
             } catch (e: Exception) {
                 _state.value = ScanUiState.Error(e.message ?: "Network/Server error")
@@ -174,6 +196,7 @@ class ScanViewModel(
         capturedImageBitmap = null
         editableProducts = emptyList()
         recipes = emptyList()
+        selectedRecipeFilters = emptySet()
         lastScanResponse = null
         errorMessage = null
     }
@@ -201,6 +224,7 @@ class ScanViewModel(
                 val result = repo.confirmProducts(body)
                 applyResolvedServer(result.server)
                 recipes = result.data.recipes
+                selectedRecipeFilters = emptySet()
                 isLoading = false
                 flow = ScanFlow.RECIPES
             } catch (e: Exception) {
@@ -233,6 +257,19 @@ class ScanViewModel(
         capturedImageBitmap = null
         _state.value = ScanUiState.Idle
         flow = ScanFlow.CAMERA
+    }
+
+    fun toggleRecipeFilter(label: String) {
+        if (label !in recipeDietaryFilterOptions) return
+        selectedRecipeFilters = selectedRecipeFilters.toMutableSet().also { filters ->
+            if (!filters.add(label)) {
+                filters.remove(label)
+            }
+        }
+    }
+
+    fun clearRecipeFilters() {
+        selectedRecipeFilters = emptySet()
     }
 
     private fun applyResolvedServer(server: ResolvedServer) {

@@ -20,6 +20,8 @@ class OcrResult:
     f_100: Optional[float]
     c_100: Optional[float]
     confidence: float
+    available: bool
+    warning: Optional[str]
 
 
 def _normalize_text(value: str) -> str:
@@ -164,8 +166,10 @@ def _extract_variant_text(results: List[Tuple[object, str, float]]) -> Tuple[Lis
 
 def run_ocr(image_bgr: np.ndarray) -> OcrResult:
     if image_bgr is None or image_bgr.size == 0:
-        return OcrResult("", None, None, None, None, None, None, 0.0)
+        return OcrResult("", None, None, None, None, None, None, 0.0, False, "Invalid image for OCR.")
 
+    available = True
+    warning: Optional[str] = None
     try:
         reader = _get_easyocr_reader()
         variants = _prepare_ocr_variants(image_bgr)
@@ -189,9 +193,20 @@ def run_ocr(image_bgr: np.ndarray) -> OcrResult:
         ordered_lines = [line for line, _ in sorted(deduped_lines.values(), key=lambda item: item[1], reverse=True)]
         text = "\n".join(ordered_lines).strip()
         confidence = float(sum(all_confidences) / len(all_confidences)) if all_confidences else 0.2
+        if not text:
+            warning = "OCR engine ran, but no readable text was found in this image."
+    except ModuleNotFoundError as exc:
+        text = ""
+        confidence = 0.0
+        available = False
+        if exc.name == "easyocr":
+            warning = "OCR engine is not installed on the server."
+        else:
+            warning = "OCR dependency is missing on the server."
     except Exception:
         text = ""
         confidence = 0.2
+        warning = "OCR engine failed while analyzing the image."
 
     net = _parse_net(text) if text else None
     fat_percent = _parse_fat_percent(text) if text else None
@@ -206,4 +221,6 @@ def run_ocr(image_bgr: np.ndarray) -> OcrResult:
         f_100=nutrition.get("f"),
         c_100=nutrition.get("c"),
         confidence=confidence,
+        available=available,
+        warning=warning,
     )

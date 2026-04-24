@@ -17,7 +17,9 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from . import db
+from .dietary_labels import available_dietary_label_icons, available_dietary_labels, normalize_selected_labels
 from .ocr import OcrResult, run_ocr
+from .recipe_tools import parse_recipe_source_text
 from .recognition import normalize_text as normalize_match_text
 from .recognition import rank_catalog
 from .vision import image_embedding_bgr
@@ -57,6 +59,7 @@ def _embedding_for_saved_image(image_path: Path) -> Optional[List[float]]:
 @app.on_event("startup")
 def _startup() -> None:
     db.init_db()
+    db.deduplicate_samples()
     db.refresh_sample_embeddings(_embedding_for_saved_image)
 
 
@@ -78,10 +81,18 @@ def _parse_optional_number(raw_value: Any, field_name: str) -> Optional[float]:
     except ValueError as exc:
         raise ValueError(f"{field_name} must be a number") from exc
 
-    if parsed <= 0:
+    # Allow 0 as "not used" so users can explicitly zero the irrelevant field.
+    if parsed == 0:
+        return None
+
+    if parsed < 0:
         raise ValueError(f"{field_name} must be greater than 0")
 
     return parsed
+
+
+def _require_measurement(volume_l: Optional[float], weight_g: Optional[float]) -> None:
+    return None
 
 
 def _parse_pieces(raw_value: Any) -> int:
@@ -168,7 +179,7 @@ def _relative_data_path(path: Path) -> str:
         return str(path)
 
 
-def _normalize_recipe_payload(payload: Dict[str, Any]) -> tuple[str, str, int, List[Dict[str, Any]]]:
+def _normalize_recipe_payload(payload: Dict[str, Any]) -> tuple[str, str, int, List[Dict[str, Any]], List[str], str, str]:
     title = str(payload.get("titlePl", "")).strip()
     if not title:
         raise ValueError("titlePl is required")
@@ -183,7 +194,15 @@ def _normalize_recipe_payload(payload: Dict[str, Any]) -> tuple[str, str, int, L
     if servings <= 0:
         raise ValueError("servings must be greater than 0")
 
+    source_mode = str(payload.get("sourceMode", "manual")).strip().lower() or "manual"
+    if source_mode not in {"manual", "auto"}:
+        raise ValueError("sourceMode must be 'manual' or 'auto'")
+
+    source_text = str(payload.get("sourceText", "")).strip()
+
     raw_ingredients = payload.get("ingredients", [])
+    if source_mode == "auto" and (not isinstance(raw_ingredients, list) or not raw_ingredients) and source_text:
+        raw_ingredients = parse_recipe_source_text(source_text, db.list_products())
     if not isinstance(raw_ingredients, list):
         raise ValueError("ingredients must be a list")
 
@@ -219,7 +238,13 @@ def _normalize_recipe_payload(payload: Dict[str, Any]) -> tuple[str, str, int, L
     if not ingredients:
         raise ValueError("at least one ingredient is required")
 
-    return title, steps, servings, ingredients
+    dietary_labels = payload.get("dietaryLabels", [])
+    if dietary_labels is None:
+        dietary_labels = []
+    if not isinstance(dietary_labels, list):
+        raise ValueError("dietaryLabels must be a list")
+
+    return title, steps, servings, ingredients, normalize_selected_labels(dietary_labels), source_mode, source_text
 
 
 def _confidence_logic(final_confidence: float, gap: float) -> Dict[str, Any]:
@@ -246,13 +271,14 @@ def _serialize_ocr(ocr_result: OcrResult) -> Dict[str, Any]:
         "f_100": ocr_result.f_100,
         "c_100": ocr_result.c_100,
         "confidence": round(float(ocr_result.confidence), 3),
+        "available": ocr_result.available,
+        "warning": ocr_result.warning,
     }
 
 
 def _fallback_scan_payload(ocr_result: OcrResult, warning: str) -> Dict[str, Any]:
     product = {
         "name": "",
-        "brand": None,
         "amount": ocr_result.net,
         "confidence": 0.0,
         "candidates": [],
@@ -290,7 +316,7 @@ def _analyze_image(image_bgr: np.ndarray, *, top_n: int = 5) -> Dict[str, Any]:
 def _build_product_response(candidate: Dict[str, Any], ocr_result: OcrResult, candidates: List[Dict[str, Any]]) -> Dict[str, Any]:
     return {
         "name": candidate["name"],
-        "brand": candidate.get("brand"),
+        "dietaryLabels": list(candidate.get("dietary_labels") or []),
         "amount": ocr_result.net,
         "confidence": round(float(candidate["confidence"]), 2),
         "candidates": candidates,
@@ -353,7 +379,6 @@ async def train_add(
     pieces: str = Form(...),
     volume_l: Optional[str] = Form(None),
     weight_g: Optional[str] = Form(None),
-    brand: Optional[str] = Form(None),
     aliases: Optional[str] = Form(None),
     image: UploadFile = File(...),
 ):
@@ -366,11 +391,9 @@ async def train_add(
         parsed_volume_l = _parse_optional_number(volume_l, "volume_l")
         parsed_weight_g = _parse_optional_number(weight_g, "weight_g")
         parsed_aliases = _parse_aliases(aliases)
+        _require_measurement(parsed_volume_l, parsed_weight_g)
     except ValueError as exc:
         return {"ok": False, "error": str(exc)}
-
-    if parsed_volume_l is not None and parsed_weight_g is not None:
-        return {"ok": False, "error": "Use either volume_l or weight_g, not both"}
 
     raw = await image.read()
     image_bgr = _decode_image_bytes(raw)
@@ -378,25 +401,124 @@ async def train_add(
         return {"ok": False, "error": "Invalid image"}
 
     embedding = image_embedding_bgr(image_bgr)
+    file_hash = db.compute_sample_hash(raw)
     product_id = db.upsert_product(
         product_name,
         parsed_pieces,
         parsed_volume_l,
         parsed_weight_g,
-        brand=brand,
         aliases=parsed_aliases,
     )
+
+    existing_sample = db.find_sample_by_hash(product_id, file_hash)
+    if existing_sample is not None:
+        return {
+            "ok": True,
+            "product_id": product_id,
+            "sample_id": existing_sample["id"],
+            "duplicate_sample": True,
+        }
 
     out_path = db.IMAGES_DIR / _safe_training_image_name(product_name, product_id, image.filename)
     out_path.write_bytes(raw)
 
-    sample_id = db.add_sample(product_id, _relative_data_path(out_path), embedding)
-    return {"ok": True, "product_id": product_id, "sample_id": sample_id}
+    sample_id = db.add_sample(
+        product_id,
+        _relative_data_path(out_path),
+        embedding,
+        file_hash=file_hash,
+    )
+    return {"ok": True, "product_id": product_id, "sample_id": sample_id, "duplicate_sample": False}
 
 
 @app.get("/train/products")
 def train_products():
     return {"products": db.list_products()}
+
+
+@app.put("/products/{product_id}")
+async def products_update(product_id: int, payload: Dict[str, Any]):
+    name = str(payload.get("name", "")).strip()
+
+    try:
+        pieces = _parse_pieces(payload.get("pieces"))
+        volume_l = _parse_optional_number(payload.get("volume_l"), "volume_l")
+        weight_g = _parse_optional_number(payload.get("weight_g"), "weight_g")
+        aliases = _parse_aliases(payload.get("aliases"))
+        _require_measurement(volume_l, weight_g)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+    try:
+        updated = db.update_product(
+            product_id,
+            name,
+            pieces,
+            volume_l,
+            weight_g,
+            aliases=aliases,
+        )
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+    if not updated:
+        return {"ok": False, "error": "product not found"}
+
+    return {"ok": True, "product_id": product_id}
+
+
+@app.post("/products/{product_id}/samples")
+async def product_sample_add(product_id: int, image: UploadFile = File(...)):
+    product_name = db.get_product_name(product_id)
+    if not product_name:
+        return {"ok": False, "error": "product not found"}
+
+    raw = await image.read()
+    image_bgr = _decode_image_bytes(raw)
+    if image_bgr is None:
+        return {"ok": False, "error": "Invalid image"}
+
+    file_hash = db.compute_sample_hash(raw)
+    existing_sample = db.find_sample_by_hash(product_id, file_hash)
+    if existing_sample is not None:
+        return {
+            "ok": True,
+            "product_id": product_id,
+            "sample_id": existing_sample["id"],
+            "sample": existing_sample,
+            "duplicate_sample": True,
+        }
+
+    embedding = image_embedding_bgr(image_bgr)
+    out_path = db.IMAGES_DIR / _safe_training_image_name(product_name, product_id, image.filename)
+    out_path.write_bytes(raw)
+    relative_image_path = _relative_data_path(out_path)
+    sample_id = db.add_sample(product_id, relative_image_path, embedding, file_hash=file_hash)
+    sample = db.get_sample(product_id, sample_id)
+
+    return {
+        "ok": True,
+        "product_id": product_id,
+        "sample_id": sample_id,
+        "sample": sample,
+        "duplicate_sample": False,
+    }
+
+
+@app.delete("/products/{product_id}/samples/{sample_id}")
+async def product_sample_delete(product_id: int, sample_id: int):
+    deleted = db.delete_sample(product_id, sample_id)
+    if deleted is None:
+        return {"ok": False, "error": "sample not found"}
+    return {"ok": True, **deleted}
+
+
+@app.delete("/products/{product_id}")
+async def product_delete(product_id: int):
+    deleted = db.delete_product(product_id)
+    if deleted is None:
+        return {"ok": False, "error": "product not found"}
+    return {"ok": True, **deleted}
 
 
 @app.post("/trainer/predict")
@@ -443,54 +565,54 @@ async def trainer_confirm(payload: Dict[str, Any]):
     if not name:
         return {"ok": False, "error": "name is required"}
 
-    brand = str(payload.get("brand", "")).strip() or None
     try:
         pieces = _parse_pieces(payload.get("pieces"))
         volume_l = _parse_optional_number(payload.get("volume_l"), "volume_l")
         weight_g = _parse_optional_number(payload.get("weight_g"), "weight_g")
         aliases = _parse_aliases(payload.get("aliases"))
+        _require_measurement(volume_l, weight_g)
     except ValueError as exc:
         return {"ok": False, "error": str(exc)}
 
-    if volume_l is not None and weight_g is not None:
-        return {"ok": False, "error": "Use either volume_l or weight_g, not both"}
-
     analysis = _analyze_image(image_bgr, top_n=6)
     prediction = analysis["candidates"][0] if analysis["candidates"] else None
+    file_hash = db.compute_sample_hash(raw)
     product_id = db.upsert_product(
         name,
         pieces,
         volume_l,
         weight_g,
-        brand=brand,
         aliases=aliases,
     )
 
-    original_filename = str(payload.get("original_filename", "")) or f"{token}.jpg"
-    out_path = db.IMAGES_DIR / _safe_training_image_name(name, product_id, original_filename)
-    out_path.write_bytes(raw)
-
     embedding = image_embedding_bgr(image_bgr)
-    relative_image_path = _relative_data_path(out_path)
-    sample_id = db.add_sample(product_id, relative_image_path, embedding)
+    duplicate_sample = db.find_sample_by_hash(product_id, file_hash)
+    if duplicate_sample is not None:
+        relative_image_path = duplicate_sample["image_path"]
+        sample_id = duplicate_sample["id"]
+        duplicate_removed = True
+    else:
+        original_filename = str(payload.get("original_filename", "")) or f"{token}.jpg"
+        out_path = db.IMAGES_DIR / _safe_training_image_name(name, product_id, original_filename)
+        out_path.write_bytes(raw)
+        relative_image_path = _relative_data_path(out_path)
+        sample_id = db.add_sample(product_id, relative_image_path, embedding, file_hash=file_hash)
+        duplicate_removed = False
 
     predicted_name = prediction["name"] if prediction else None
-    predicted_brand = prediction.get("brand") if prediction else None
     was_correct = False
     if prediction:
         was_correct = normalize_match_text(predicted_name or "") == normalize_match_text(name)
-        if brand and predicted_brand:
-            was_correct = was_correct and normalize_match_text(predicted_brand) == normalize_match_text(brand)
 
     feedback_id = db.log_scan_feedback(
         saved_image_path=relative_image_path,
         predicted_product_id=prediction.get("id") if prediction else None,
         predicted_name=predicted_name,
-        predicted_brand=predicted_brand,
+        predicted_brand=None,
         predicted_confidence=float(prediction["confidence"]) if prediction else None,
         confirmed_product_id=product_id,
         confirmed_name=name,
-        confirmed_brand=brand,
+        confirmed_brand=None,
         was_correct=was_correct,
         ocr_text=analysis["ocr"].text,
         candidates=analysis["candidates"],
@@ -505,32 +627,43 @@ async def trainer_confirm(payload: Dict[str, Any]):
         "feedback_id": feedback_id,
         "was_correct": was_correct,
         "saved_name": name,
+        "duplicate_sample": duplicate_removed,
     }
 
 
 @app.post("/recipes/add")
 async def recipes_add(payload: Dict[str, Any]):
     try:
-        title, steps, servings, ingredients = _normalize_recipe_payload(payload)
+        title, steps, servings, ingredients, dietary_labels, source_mode, source_text = _normalize_recipe_payload(payload)
     except ValueError as exc:
         return {"ok": False, "error": str(exc)}
 
-    recipe_id = db.add_recipe(title, steps, servings, ingredients)
+    recipe_id = db.add_recipe(title, steps, servings, ingredients, dietary_labels, source_mode, source_text)
     return {"ok": True, "recipe_id": recipe_id}
 
 
 @app.put("/recipes/{recipe_id}")
 async def recipes_update(recipe_id: int, payload: Dict[str, Any]):
     try:
-        title, steps, servings, ingredients = _normalize_recipe_payload(payload)
+        title, steps, servings, ingredients, dietary_labels, source_mode, source_text = _normalize_recipe_payload(payload)
     except ValueError as exc:
         return {"ok": False, "error": str(exc)}
 
-    updated = db.update_recipe(recipe_id, title, steps, servings, ingredients)
+    updated = db.update_recipe(recipe_id, title, steps, servings, ingredients, dietary_labels, source_mode, source_text)
     if not updated:
         return {"ok": False, "error": "recipe not found"}
 
     return {"ok": True, "recipe_id": recipe_id}
+
+
+@app.post("/recipes/parse-ingredients")
+async def recipes_parse_ingredients(payload: Dict[str, Any]):
+    source_text = str(payload.get("sourceText", "")).strip()
+    if not source_text:
+        return {"ok": False, "error": "sourceText is required"}
+
+    ingredients = parse_recipe_source_text(source_text, db.list_products())
+    return {"ok": True, "ingredients": ingredients, "detected_count": len(ingredients)}
 
 
 @app.get("/recipes/list")
@@ -544,6 +677,8 @@ def admin_home():
     return template.render(
         products=db.list_products(),
         recipes=db.list_recipes(),
+        dietary_labels=available_dietary_labels(),
+        dietary_label_icons=available_dietary_label_icons(),
     )
 
 
@@ -553,6 +688,7 @@ def trainer_home():
     return template.render(
         product_count=len(db.list_products()),
         sample_count=len(db.load_samples()),
+        dietary_label_icons=available_dietary_label_icons(),
     )
 
 
